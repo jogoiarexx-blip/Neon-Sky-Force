@@ -51,18 +51,8 @@ const CONFIG = {
     }
   },
   
-  LEVELS: {
-    1: {name: "CIDADE NEON", bg: "#050510", speed: 2, bossLife: 200, color1: "#0ff", color2: "#f0f", buildings: true, bossType: 1, bossName: "DESTRUCTOR", enemyTypes: [1,1,2,3]},
-    2: {name: "DESERTO CIBER", bg: "#120a00", speed: 3, bossLife: 260, color1: "#ff0", color2: "#f80", buildings: false, bossType: 2, bossName: "INFERNO", enemyTypes: [1,2,2,3]},
-    3: {name: "ESPAÇO PROFUNDO", bg: "#000014", speed: 4, bossLife: 340, color1: "#0af", color2: "#f0a", buildings: false, bossType: 3, bossName: "VOID HUNTER", enemyTypes: [1,2,3,3,4]},
-    4: {name: "DIMENSÃO RACHADA", bg: "#1a0033", speed: 5, bossLife: 500, color1: "#a0f", color2: "#f0a", buildings: false, bossType: 4, bossName: "OMEGA", enemyTypes: [2,3,4,5]},
-    5: {name: "OCEANO PLASMA", bg: "#00181d", speed: 4.4, bossLife: 560, color1: "#00ffd5", color2: "#00aaff", buildings: false, bossType: 5, bossName: "LEVIATHAN", enemyTypes: [2,3,4,4,5]},
-    6: {name: "FORTALEZA MECÂNICA", bg: "#101418", speed: 4.8, bossLife: 640, color1: "#d0d7df", color2: "#ff4d4d", buildings: false, bossType: 6, bossName: "IRON CORE", enemyTypes: [2,4,5,6,6]},
-    7: {name: "ECLIPSE CARMESIM", bg: "#170006", speed: 5.1, bossLife: 720, color1: "#ff3355", color2: "#ff9900", buildings: false, bossType: 1, bossVariant: 2, bossName: "DESTRUCTOR MK-II", enemyTypes: [3,4,5,6]},
-    8: {name: "RUÍNAS QUÂNTICAS", bg: "#06101b", speed: 5.4, bossLife: 820, color1: "#65d8ff", color2: "#b15cff", buildings: false, bossType: 7, bossName: "CHRONOS", enemyTypes: [4,5,5,6]},
-    9: {name: "ZONA DO CAOS", bg: "#090018", speed: 5.8, bossLife: 900, color1: "#9d4dff", color2: "#00e5ff", buildings: false, bossType: 3, bossVariant: 2, bossName: "VOID HUNTER EX", enemyTypes: [3,4,5,6,6]},
-    10:{name: "NÚCLEO NEON", bg: "#180018", speed: 6.2, bossLife: 1100, color1: "#ff33ee", color2: "#00ffff", buildings: false, bossType: 8, bossName: "APEX OMEGA", enemyTypes: [4,5,6,6,5]}
-  },
+  // Full stage definitions are loaded on demand by StageLoader.
+  LEVELS: {},
   
   MAX_LEVEL: 10,
   KILLS_PER_BOSS: 20,
@@ -3761,7 +3751,7 @@ const Game = {
     // Subtitle
     ctx.fillStyle = "#fff";
     ctx.font = "16px monospace";
-    ctx.fillText("COMPLETE SYSTEMS v1.5", 210, 190);
+    ctx.fillText("STREAMING STAGES v1.6", 210, 190);
     
     // Difficulty selector
     ctx.fillStyle = "#0ff";

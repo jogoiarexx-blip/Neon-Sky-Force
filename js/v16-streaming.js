@@ -1,9 +1,9 @@
 "use strict";
 
-/* Neon Sky Force v1.5 - Complete Systems Overhaul
+/* Neon Sky Force v1.6 - Streaming Stages + Complete Systems
    Keeps the v1.4 campaign/assets and replaces the weak points of the runtime:
    fixed 60 Hz simulation, scripted waves, boss intros, fair hitboxes, checkpoints,
-   mission ranks, persistent records, remapping/settings and richer enemy mechanics. */
+   mission ranks, persistent records, remapping/settings, richer enemy mechanics and on-demand stage streaming. */
 
 (() => {
   const STORAGE = {
@@ -22,13 +22,7 @@
     PLAYER_FOCUS_HIT_RADIUS: 4
   });
 
-  // Two extra enemy families become part of the late-game campaign.
-  CONFIG.LEVELS[5].enemyTypes = [2,3,4,5,7];
-  CONFIG.LEVELS[6].enemyTypes = [2,4,5,6,7];
-  CONFIG.LEVELS[7].enemyTypes = [3,4,5,6,7,8];
-  CONFIG.LEVELS[8].enemyTypes = [4,5,6,7,8];
-  CONFIG.LEVELS[9].enemyTypes = [3,4,5,6,7,8];
-  CONFIG.LEVELS[10].enemyTypes = [4,5,6,7,8,8];
+  // Enemy pools now live inside each lazily loaded stage module.
 
   const ENEMY_STATS = {
     1: {health:30, radius:12, speed:2.5, fireRate:120, points:100, color:'#f0f'},
@@ -41,18 +35,6 @@
     8: {health:68, radius:17, speed:1.50, fireRate:135, points:400, color:'#b877ff'}
   };
 
-  const MISSION_PATTERNS = {
-    1: ['line','v','zigzag','elite'],
-    2: ['pincer','line','v','ambush'],
-    3: ['zigzag','swarm','column','elite'],
-    4: ['cross','pincer','swarm','ambush','elite'],
-    5: ['v','escort','pincer','swarm','elite'],
-    6: ['column','escort','cross','ambush','elite'],
-    7: ['pincer','swarm','escort','zigzag','elite'],
-    8: ['cross','column','escort','ambush','elite'],
-    9: ['swarm','pincer','cross','escort','elite'],
-    10:['ambush','escort','swarm','cross','elite']
-  };
 
   const WAVE_LABELS = {
     line:'LINHA DE ATAQUE', v:'FORMAÇÃO V', zigzag:'INTERCEPTORES', elite:'UNIDADE ELITE',
@@ -200,6 +182,7 @@
     this.initBackground();
     this._lastRaf=0; this._accumulator=0;
     this.updateMenuActions();
+    StageLoader.prefetch(1);
     this.update();
   };
 
@@ -323,22 +306,87 @@
     localStorage.setItem(STORAGE.checkpoint,JSON.stringify(this.checkpoint));
   };
 
-  Game.startGame = function() {
-    if (!this._preserveCheckpoint) this.clearCheckpoint();
-    this.hideGameOver();
-    legacy.startGame.call(this);
-    this.initStageMission(); this.resetStageStats();
-    AudioSystem.playStage(this.level);
-    this.updateMenuActions();
+  Game.drawLoadingScreen = function(title = 'CARREGANDO') {
+    const ctx = this.ctx;
+    const info = this.loadingInfo || StageLoader.progress || { value: 0, label: '' };
+    const p = Math.max(0, Math.min(1, Number(info.value) || 0));
+    ctx.save();
+    const grad = ctx.createRadialGradient(210, 320, 20, 210, 320, 360);
+    grad.addColorStop(0, '#07152d'); grad.addColorStop(1, '#000');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, 420, 640);
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 25px monospace'; ctx.fillStyle = '#7df7ff';
+    ctx.shadowBlur = 18; ctx.shadowColor = '#00d9ff'; ctx.fillText(title, 210, 280); ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(55, 318, 310, 12);
+    ctx.fillStyle = '#00eaff'; ctx.fillRect(55, 318, 310 * p, 12);
+    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.strokeRect(55, 318, 310, 12);
+    ctx.font = 'bold 12px monospace'; ctx.fillStyle = '#fff'; ctx.fillText(Math.round(p * 100) + '%', 210, 352);
+    ctx.font = '10px monospace'; ctx.fillStyle = '#9ab0c6'; ctx.fillText(String(info.label || '').slice(0, 44), 210, 378);
+    ctx.restore();
   };
-  Game.continueFromCheckpoint = function() {
-    const cp=this.getCheckpoint(); if(!cp)return;
-    this._preserveCheckpoint=true; this.startGame(); this._preserveCheckpoint=false;
-    this.level=cp.level; this.difficulty=CONFIG.DIFFICULTIES[cp.difficulty]?cp.difficulty:'NORMAL'; this.score=cp.score||0;
-    this.player.life=Math.max(1,cp.life||3); this.player.weapon=Math.max(1,Math.min(3,cp.weapon||1)); this.player.shield=Math.max(0,Math.min(3,cp.shield||0)); this.player.overdriveTimer=cp.overdriveTimer||0;
-    this.player.x=210; this.player.y=555; this.player.invuln=120;
-    this.levelKills=0; this.enemies=[]; this.enemyBullets=[]; this.bullets=[]; this.powerups=[]; this.boss=null; this.bossIntro=null; this.stageTransition=null;
-    this.initStageMission(); this.resetStageStats(); this.showLevel=120; AudioSystem.playStage(this.level); this.showFeedback('CHECKPOINT · FASE '+this.level,'#0ff');
+
+  Game.startGame = async function() {
+    if (this._stageStartPending) return;
+    this._stageStartPending = true;
+    const previousActive = StageLoader.activeLevel;
+    this.state = 'loading';
+    this.loadingInfo = { value: 0, label: 'INICIANDO FASE 1' };
+    this.updateMenuActions();
+    try {
+      await StageLoader.activate(1);
+      if (!this._preserveCheckpoint) this.clearCheckpoint();
+      this.hideGameOver();
+      legacy.startGame.call(this);
+      this.initStageMission(); this.resetStageStats();
+      AudioSystem.playStage(this.level);
+      StageLoader.activeLevel = this.level;
+      if (previousActive && previousActive !== this.level) StageLoader.release(previousActive);
+      StageLoader.prefetchNext(this.level);
+      this.updateMenuActions();
+    } catch (error) {
+      console.error('[StageLoader]', error);
+      this.state = 'menu';
+      this.showFeedback('ERRO AO CARREGAR FASE 1', '#ff4455');
+    } finally {
+      this._stageStartPending = false;
+    }
+  };
+
+  Game.continueFromCheckpoint = async function() {
+    const cp = this.getCheckpoint();
+    if (!cp || this._stageStartPending) return;
+    this._stageStartPending = true;
+    const previousActive = StageLoader.activeLevel;
+    this.state = 'loading';
+    this.loadingInfo = { value: 0, label: 'ABRINDO CHECKPOINT' };
+    this.updateMenuActions();
+    try {
+      await StageLoader.activate(cp.level);
+      this.hideGameOver();
+      legacy.startGame.call(this);
+      this.level = cp.level;
+      this.difficulty = CONFIG.DIFFICULTIES[cp.difficulty] ? cp.difficulty : 'NORMAL';
+      this.score = cp.score || 0;
+      this.player.life = Math.max(1, cp.life || 3);
+      this.player.weapon = Math.max(1, Math.min(3, cp.weapon || 1));
+      this.player.shield = Math.max(0, Math.min(3, cp.shield || 0));
+      this.player.overdriveTimer = cp.overdriveTimer || 0;
+      this.player.x = 210; this.player.y = 555; this.player.invuln = 120;
+      this.levelKills = 0; this.enemies = []; this.enemyBullets = []; this.bullets = []; this.powerups = []; this.boss = null; this.bossIntro = null; this.stageTransition = null;
+      this.initStageMission(); this.resetStageStats(); this.showLevel = 120;
+      AudioSystem.playStage(this.level);
+      StageLoader.activeLevel = this.level;
+      if (previousActive && previousActive !== this.level) StageLoader.release(previousActive);
+      StageLoader.prefetchNext(this.level);
+      this.showFeedback('CHECKPOINT · FASE ' + this.level, '#0ff');
+      this.updateMenuActions();
+    } catch (error) {
+      console.error('[StageLoader]', error);
+      this.state = 'menu';
+      this.showFeedback('ERRO AO ABRIR CHECKPOINT', '#ff4455');
+    } finally {
+      this._stageStartPending = false;
+    }
   };
 
   Game.resetStageStats = function() { this.stageStats={frames:0,shotsFired:0,shotsHit:0,damageTaken:0,maxCombo:0,startScore:this.score||0}; };
@@ -447,11 +495,52 @@
     this.enemies=this.enemies.filter(e=>!e.dead&&e.y<690&&e.h>0);
   };
 
-  Game.buildMissionWaves = function(level) {
-    const lvl=CONFIG.LEVELS[level],patterns=MISSION_PATTERNS[level]||MISSION_PATTERNS[1],pool=lvl.enemyTypes;
-    return patterns.map((pattern,i)=>{const count=Math.min(11,5+Math.floor(level*.45)+i);let types=pool.slice(Math.max(0,i-1));if(pattern==='elite')types=pool.slice(-Math.min(3,pool.length));if(pattern==='escort'&&!types.includes(7)&&level>=5)types.push(7);return{pattern,label:WAVE_LABELS[pattern],count,types,interval:pattern==='swarm'?12:pattern==='elite'?28:19};});
+  Game.buildMissionWave = function(level, index) {
+    const lvl = CONFIG.LEVELS[level];
+    const patterns = lvl?.wavePatterns || [];
+    const pattern = patterns[index];
+    if (!pattern) return null;
+    const pool = (lvl.enemyTypes || [1,2,3]).slice();
+    const count = Math.min(11, 5 + Math.floor(level * .45) + index);
+    let types = pool.slice(Math.max(0, index - 1));
+    if (pattern === 'elite') types = pool.slice(-Math.min(3, pool.length));
+    if (pattern === 'escort' && !types.includes(7) && level >= 5) types.push(7);
+    return { pattern, label: WAVE_LABELS[pattern] || pattern.toUpperCase(), count, types, interval: pattern === 'swarm' ? 12 : pattern === 'elite' ? 28 : 19 };
   };
-  Game.initStageMission = function() { this.missionDirector={waves:this.buildMissionWaves(this.level),waveIndex:0,spawnIndex:0,spawnTimer:35,waitTimer:35,announced:false,completed:false};this.bossIntro=null; };
+
+  Game.prepareMissionWave = function(index) {
+    const d = this.missionDirector;
+    if (!d || index < 0 || index >= d.totalWaves) return;
+    const levelAtRequest = this.level;
+    d.waveReady = false;
+    d.wavePreparing = index;
+    d.waves[index] = this.buildMissionWave(levelAtRequest, index);
+    StageLoader.prepareWave(levelAtRequest, index).then(() => {
+      if (!this.missionDirector || this.level !== levelAtRequest || this.missionDirector.wavePreparing !== index) return;
+      this.missionDirector.waveReady = true;
+      this.missionDirector.wavePreparing = null;
+      StageLoader.prefetchWave(levelAtRequest, index + 1);
+      if (index >= this.missionDirector.totalWaves - 2) StageLoader.prefetchBoss(levelAtRequest);
+    }).catch(error => {
+      console.warn('[MissionStream]', error);
+      if (this.missionDirector && this.level === levelAtRequest) {
+        this.missionDirector.waveReady = true;
+        this.missionDirector.wavePreparing = null;
+      }
+    });
+  };
+
+  Game.initStageMission = function() {
+    const patterns = CONFIG.LEVELS[this.level]?.wavePatterns || [];
+    this.missionDirector = {
+      waves: new Array(patterns.length), totalWaves: patterns.length, waveIndex: 0, spawnIndex: 0,
+      spawnTimer: 35, waitTimer: 35, announced: false, completed: false,
+      waveReady: false, wavePreparing: null, bossPreparing: false, bossReady: false
+    };
+    this.bossIntro = null;
+    if (patterns.length) this.prepareMissionWave(0);
+  };
+
   Game.waveSpawnX = function(wave,index) {
     const n=wave.count,p=wave.pattern;
     if(p==='line')return 45+(index%Math.min(n,7))*55;
@@ -465,12 +554,58 @@
     return 30+Math.random()*360;
   };
   Game.updateMissionDirector = function() {
-    const d=this.missionDirector;if(!d||d.completed||this.boss||this.bossIntro||this.stageTransition)return;
-    if(d.waitTimer>0){d.waitTimer--;return;}const wave=d.waves[d.waveIndex];
-    if(!wave){if(this.enemies.length===0){d.completed=true;this.beginBossIntro();}return;}
-    if(!d.announced){d.announced=true;this.showFeedback(`ONDA ${d.waveIndex+1} · ${wave.label}`,CONFIG.LEVELS[this.level].color1);}
-    if(d.spawnIndex<wave.count){d.spawnTimer--;if(d.spawnTimer<=0){let type=wave.types[d.spawnIndex%wave.types.length];if(wave.pattern==='escort'&&d.spawnIndex===0)type=this.level>=7?8:7;const x=this.waveSpawnX(wave,d.spawnIndex);const opts={formation:wave.pattern};if(wave.pattern==='ambush')opts.vx=x<210?2.2:-2.2;this.spawnEnemy(type,x,opts);d.spawnIndex++;d.spawnTimer=wave.interval;}}
-    else if(this.enemies.length===0){const waveBonus=250+(d.waveIndex+1)*100;this.score+=waveBonus;this.floatingTexts.push(new FloatingText(210,150,'ONDA +'+waveBonus,'#7dff8a'));d.waveIndex++;d.spawnIndex=0;d.spawnTimer=22;d.waitTimer=42;d.announced=false;}
+    const d = this.missionDirector;
+    if (!d || d.completed || this.boss || this.bossIntro || this.stageTransition) return;
+    if (d.waitTimer > 0) { d.waitTimer--; return; }
+
+    if (d.waveIndex >= d.totalWaves) {
+      if (this.enemies.length > 0) return;
+      if (!d.bossPreparing) {
+        d.bossPreparing = true;
+        d.bossReady = false;
+        const levelAtRequest = this.level;
+        StageLoader.prepareBoss(levelAtRequest).then(() => {
+          if (this.missionDirector && this.level === levelAtRequest) this.missionDirector.bossReady = true;
+        }).catch(error => {
+          console.warn('[BossStream]', error);
+          if (this.missionDirector && this.level === levelAtRequest) this.missionDirector.bossReady = true;
+        });
+      }
+      if (d.bossReady) { d.completed = true; this.beginBossIntro(); }
+      return;
+    }
+
+    if (!d.waveReady) return;
+    const wave = d.waves[d.waveIndex];
+    if (!wave) return;
+    if (!d.announced) {
+      d.announced = true;
+      this.showFeedback(`ONDA ${d.waveIndex + 1} · ${wave.label}`, CONFIG.LEVELS[this.level].color1);
+    }
+    if (d.spawnIndex < wave.count) {
+      d.spawnTimer--;
+      if (d.spawnTimer <= 0) {
+        let type = wave.types[d.spawnIndex % wave.types.length];
+        if (wave.pattern === 'escort' && d.spawnIndex === 0) type = this.level >= 7 ? 8 : 7;
+        const x = this.waveSpawnX(wave, d.spawnIndex);
+        const opts = { formation: wave.pattern };
+        if (wave.pattern === 'ambush') opts.vx = x < 210 ? 2.2 : -2.2;
+        this.spawnEnemy(type, x, opts);
+        d.spawnIndex++;
+        d.spawnTimer = wave.interval;
+      }
+      return;
+    }
+
+    if (this.enemies.length === 0) {
+      const completedIndex = d.waveIndex;
+      const waveBonus = 250 + (completedIndex + 1) * 100;
+      this.score += waveBonus;
+      this.floatingTexts.push(new FloatingText(210, 150, 'ONDA +' + waveBonus, '#7dff8a'));
+      StageLoader.releaseWave(this.level, completedIndex);
+      d.waveIndex++; d.spawnIndex = 0; d.spawnTimer = 22; d.waitTimer = 42; d.announced = false; d.waveReady = false;
+      if (d.waveIndex < d.totalWaves) this.prepareMissionWave(d.waveIndex);
+    }
   };
 
   Game.beginBossIntro = function() { if(this.bossIntro||this.boss)return;this.enemyBullets=[];this.bullets=[];this.firing=false;this.bossIntro={timer:0,duration:CONFIG.BOSS_INTRO_FRAMES};AudioSystem.stopMusic();this.addScreenShake(4); };
@@ -679,15 +814,110 @@
 
   Game.drawBoss = function() { legacy.drawBoss.call(this);const b=this.boss;if(!b)return;const ctx=this.ctx;ctx.save();if(b.parts?.length){for(const part of b.parts){const x=b.x+part.x,y=b.y+part.y;if(!part.destroyed){ctx.strokeStyle='#ffd34d';ctx.lineWidth=2;ctx.shadowBlur=10;ctx.shadowColor='#ffd34d';ctx.beginPath();ctx.arc(x,y,13,0,Math.PI*2);ctx.stroke();ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillRect(x-12,y-19,24,3);ctx.fillStyle='#ffd34d';ctx.fillRect(x-12,y-19,24*Math.max(0,part.h/part.maxH),3);}else{ctx.strokeStyle='#ff4433';ctx.beginPath();ctx.moveTo(x-8,y-8);ctx.lineTo(x+8,y+8);ctx.moveTo(x+8,y-8);ctx.lineTo(x-8,y+8);ctx.stroke();}}}ctx.strokeStyle=b.phase===2?'rgba(255,45,75,.35)':'rgba(255,255,255,.12)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(b.x,b.y,62+b.phase*6+Math.sin(this.frameCount*.08)*3,0,Math.PI*2);ctx.stroke();ctx.restore(); };
 
-  Game.beginStageTransition = function(finalStage=false) { legacy.beginStageTransition.call(this,finalStage);if(this.stageTransition)this.stageTransition.result=this.lastStageResult||null; };
-  Game.switchStageAtMidpoint = function() { const before=this.level;legacy.switchStageAtMidpoint.call(this);if(this.level!==before){this.initStageMission();this.resetStageStats();AudioSystem.playStage(this.level);} };
-  Game.updateStageTransition = function() { const tr=this.stageTransition;const result=tr?.result;const out=legacy.updateStageTransition.call(this);if(tr&&result&&this.stageTransition&&tr.timer<=CONFIG.STAGE_CLEAR_FRAMES){const ctx=this.ctx;ctx.save();ctx.textAlign='center';ctx.font='bold 42px monospace';ctx.fillStyle=result.rank==='S'?'#ffe34d':result.rank==='A'?'#7dff8a':result.rank==='B'?'#7df7ff':'#ccc';ctx.shadowBlur=14;ctx.shadowColor=ctx.fillStyle;ctx.fillText('RANK '+result.rank,210,374);ctx.shadowBlur=0;ctx.font='10px monospace';ctx.fillStyle='#fff';ctx.fillText(`PRECISÃO ${result.accuracy.toFixed(0)}% · TEMPO ${result.seconds.toFixed(1)}s · COMBO ${result.maxCombo}`,210,397);ctx.fillStyle=result.noDamage?'#7dff8a':'#aaa';ctx.fillText(result.noDamage?'NO DAMAGE · BÔNUS +'+result.bonus:'BÔNUS +'+result.bonus,210,417);ctx.restore();}return out; };
+  Game.beginStageTransition = function(finalStage=false) {
+    legacy.beginStageTransition.call(this, finalStage);
+    const tr = this.stageTransition;
+    if (!tr) return;
+    tr.result = this.lastStageResult || null;
+    tr.stageReady = !!finalStage;
+    tr.stageLoadError = null;
+    if (!finalStage) {
+      const target = tr.toLevel;
+      StageLoader.activate(target, { makeActive: false }).then(() => {
+        if (this.stageTransition === tr) tr.stageReady = true;
+        else StageLoader.release(target);
+      }).catch(error => {
+        console.error('[StageTransition]', error);
+        if (this.stageTransition === tr) tr.stageLoadError = error;
+      });
+    }
+  };
 
-  Game.drawHUD = function() { legacy.drawHUD.call(this);const ctx=this.ctx,d=this.missionDirector,lvl=CONFIG.LEVELS[this.level];ctx.save();ctx.fillStyle='rgba(2,10,24,.93)';ctx.fillRect(260,56,149,29);ctx.textAlign='right';ctx.font='9px monospace';let label='';let prog=0;if(this.boss) {label='BOSS · FASE '+(this.boss.phase+1);prog=1;} else if(this.bossIntro){label='⚠ WARNING · '+lvl.bossName;prog=this.bossIntro.timer/this.bossIntro.duration;} else if(d){const w=d.waves[Math.min(d.waveIndex,d.waves.length-1)];label=d.completed?'BOSS A CAMINHO':`ONDA ${Math.min(d.waveIndex+1,d.waves.length)}/${d.waves.length} · ${w?.label||''}`;prog=d.waves.length?Math.min(1,(d.waveIndex+(w?d.spawnIndex/Math.max(1,w.count):0))/d.waves.length):0;}ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(265,61,140,7);ctx.fillStyle=this.boss||this.bossIntro?'#f33':lvl.color1;ctx.fillRect(265,61,140*prog,7);ctx.strokeStyle='rgba(255,255,255,.35)';ctx.strokeRect(265,61,140,7);ctx.fillStyle='#aaa';ctx.fillText(label,405,80);if(this.bestRanks?.[this.level]){ctx.fillStyle='#ffe34d';ctx.textAlign='left';ctx.fillText('BEST '+this.bestRanks[this.level],184,68);}ctx.restore(); };
+  Game.switchStageAtMidpoint = function() {
+    const tr = this.stageTransition;
+    if (tr && !tr.finalStage && !tr.stageReady) return;
+    const before = this.level;
+    legacy.switchStageAtMidpoint.call(this);
+    if (this.level !== before) {
+      StageLoader.activeLevel = this.level;
+      this.initStageMission();
+      this.resetStageStats();
+      AudioSystem.playStage(this.level);
+      StageLoader.release(before);
+      StageLoader.prefetchNext(this.level);
+    }
+  };
+
+  Game.drawTransitionLoadGate = function(tr) {
+    const ctx = this.ctx;
+    const info = StageLoader.progress || { value: 0, label: '' };
+    const p = Math.max(0, Math.min(1, Number(info.value) || 0));
+    ctx.save();
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 420, 640);
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 18px monospace'; ctx.fillStyle = '#7df7ff';
+    ctx.fillText('CARREGANDO ' + (CONFIG.LEVELS[tr.toLevel]?.name || ('FASE ' + tr.toLevel)), 210, 286);
+    ctx.fillStyle = 'rgba(255,255,255,.13)'; ctx.fillRect(60, 318, 300, 10);
+    ctx.fillStyle = tr.stageLoadError ? '#ff4455' : '#00eaff'; ctx.fillRect(60, 318, 300 * p, 10);
+    ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.strokeRect(60, 318, 300, 10);
+    ctx.font = '11px monospace'; ctx.fillStyle = '#fff';
+    ctx.fillText(tr.stageLoadError ? 'FALHA AO PREPARAR A FASE' : Math.round(p * 100) + '%', 210, 354);
+    ctx.font = '9px monospace'; ctx.fillStyle = '#8292a8';
+    ctx.fillText(tr.stageLoadError ? 'Reabra o jogo e tente novamente.' : String(info.label || '').slice(0, 46), 210, 378);
+    ctx.restore();
+  };
+
+  Game.updateStageTransition = function() {
+    const tr = this.stageTransition;
+    const result = tr?.result;
+    const loadGate = CONFIG.STAGE_CLEAR_FRAMES + CONFIG.STAGE_FADE_OUT_FRAMES;
+    if (tr && !tr.finalStage && tr.timer >= loadGate && !tr.stageReady) {
+      this.drawTransitionLoadGate(tr);
+      return true;
+    }
+    const out = legacy.updateStageTransition.call(this);
+    if (tr && result && this.stageTransition && tr.timer <= CONFIG.STAGE_CLEAR_FRAMES) {
+      const ctx = this.ctx; ctx.save(); ctx.textAlign = 'center'; ctx.font = 'bold 42px monospace';
+      ctx.fillStyle = result.rank === 'S' ? '#ffe34d' : result.rank === 'A' ? '#7dff8a' : result.rank === 'B' ? '#7df7ff' : '#ccc';
+      ctx.shadowBlur = 14; ctx.shadowColor = ctx.fillStyle; ctx.fillText('RANK ' + result.rank, 210, 374); ctx.shadowBlur = 0;
+      ctx.font = '10px monospace'; ctx.fillStyle = '#fff'; ctx.fillText(`PRECISÃO ${result.accuracy.toFixed(0)}% · TEMPO ${result.seconds.toFixed(1)}s · COMBO ${result.maxCombo}`, 210, 397);
+      ctx.fillStyle = result.noDamage ? '#7dff8a' : '#aaa'; ctx.fillText(result.noDamage ? 'NO DAMAGE · BÔNUS +' + result.bonus : 'BÔNUS +' + result.bonus, 210, 417);
+      ctx.restore();
+    }
+    return out;
+  };
+
+  Game.drawHUD = function() {
+    legacy.drawHUD.call(this);
+    const ctx=this.ctx,d=this.missionDirector,lvl=CONFIG.LEVELS[this.level];
+    ctx.save(); ctx.fillStyle='rgba(2,10,24,.93)'; ctx.fillRect(260,56,149,29); ctx.textAlign='right'; ctx.font='9px monospace';
+    let label='', prog=0;
+    if(this.boss){ label='BOSS · FASE '+(this.boss.phase+1); prog=1; }
+    else if(this.bossIntro){ label='⚠ WARNING · '+lvl.bossName; prog=this.bossIntro.timer/this.bossIntro.duration; }
+    else if(d){
+      const total=d.totalWaves||d.waves.length||1;
+      const idx=Math.min(d.waveIndex,Math.max(0,total-1));
+      const w=d.waves[idx];
+      if(d.bossPreparing&&!d.bossReady) label='PREPARANDO BOSS';
+      else if(!d.waveReady&&d.waveIndex<total) label=`PREPARANDO ONDA ${d.waveIndex+1}/${total}`;
+      else label=d.completed?'BOSS A CAMINHO':`ONDA ${Math.min(d.waveIndex+1,total)}/${total} · ${w?.label||''}`;
+      prog=total?Math.min(1,(d.waveIndex+(w?d.spawnIndex/Math.max(1,w.count):0))/total):0;
+    }
+    ctx.fillStyle='rgba(255,255,255,.12)';ctx.fillRect(265,61,140,7);ctx.fillStyle=this.boss||this.bossIntro?'#f33':lvl.color1;ctx.fillRect(265,61,140*prog,7);ctx.strokeStyle='rgba(255,255,255,.35)';ctx.strokeRect(265,61,140,7);ctx.fillStyle='#aaa';ctx.fillText(label,405,80);
+    if(this.bestRanks?.[this.level]){ctx.fillStyle='#ffe34d';ctx.textAlign='left';ctx.fillText('BEST '+this.bestRanks[this.level],184,68);}
+    ctx.restore();
+  };
 
   Game.showGameOver = function() { if(this.state==='gameover')return;this.state='gameover';this.paused=false;this.updateMobileControlsVisibility();if(this.score>this.hiScore){this.hiScore=this.score;localStorage.setItem('hiScore',this.hiScore);}const cp=this.getCheckpoint(),ov=document.getElementById('gameOverOverlay'),cont=document.getElementById('continueBtn'),txt=document.getElementById('gameOverCheckpoint');if(cont)cont.style.display=cp?'inline-block':'none';if(txt)txt.textContent=cp?`Checkpoint salvo: Fase ${cp.level} · ${CONFIG.LEVELS[cp.level].name}`:'Nenhum checkpoint salvo nesta campanha.';if(ov){ov.style.display='flex';ov.setAttribute('aria-hidden','false');}AudioSystem.playMusic('menu'); };
   Game.hideGameOver = function() { const ov=document.getElementById('gameOverOverlay');if(ov){ov.style.display='none';ov.setAttribute('aria-hidden','true');} };
-  Game.returnToMenu = function() { this.hideGameOver();this.closeSettings();this.closeRecords();legacy.returnToMenu.call(this);this.updateMenuActions(); };
+  Game.returnToMenu = function() {
+    const oldLevel = StageLoader.activeLevel || this.level;
+    this.hideGameOver(); this.closeSettings(); this.closeRecords();
+    legacy.returnToMenu.call(this);
+    StageLoader.release(oldLevel);
+    StageLoader.prefetch(1);
+    this.updateMenuActions();
+  };
   Game.showVictory = function() { this.clearCheckpoint();legacy.showVictory.call(this);this.updateMenuActions(); };
 
   const originalToggleSound=legacy.toggleSound;
@@ -696,6 +926,7 @@
   /* ---------- Fixed 60 Hz simulation: monitor refresh no longer changes gameplay ---------- */
   Game.fixedStep = function() {
     const ctx=this.ctx;this.frameCount++;this.pollGamepad();
+    if(this.state==='loading'){this.drawLoadingScreen('CARREGANDO MISSÃO');return;}
     if(this.state==='menu'){
       this.drawMenu();this.updateMenuActions();if(this.keys['1'])this.setDifficulty('EASY');if(this.keys['2'])this.setDifficulty('NORMAL');if(this.keys['3'])this.setDifficulty('HARD');if(this.keys['4'])this.setDifficulty('NIGHTMARE');return;
     }
