@@ -1,0 +1,63 @@
+NEON SKY FORCE - PC v1.5 COMPLETE SYSTEMS
+
+PRINCIPAIS MELHORIAS
+- Simulação em passo fixo de 60 Hz: gameplay mantém a mesma velocidade em monitores 60/120/144 Hz.
+- Campanha de 10 fases agora usa ondas roteirizadas e formações diferentes em vez de apenas contar 20 mortes.
+- Formações: linha, V, pinça, emboscada, enxame, coluna, fogo cruzado, escolta pesada e elite.
+- Entrada cinematográfica de boss com WARNING, nome do alvo e preparação antes da luta.
+- Hitbox circular menor e mais justa; no modo Precisão/SHIFT o núcleo real da nave aparece.
+- Correção de morte duplicada: um inimigo não pode mais gerar kills/pontos repetidos no mesmo frame.
+
+INIMIGOS
+- Sniper: mostra linha de mira antes do disparo de precisão.
+- Striker: executa investidas direcionadas.
+- Guardian: possui escudo separado que precisa ser quebrado.
+- Carrier: lança drones durante a luta.
+- Support: cria aura que fortalece e regenera aliados próximos.
+- As fases avançadas combinam essas classes em ondas próprias.
+
+BOSSES
+- Mantidos os 10 encontros: Destructor, Inferno, Void Hunter, Omega, Leviathan, Iron Core, Destructor MK-II, Chronos, Void Hunter EX e Apex Omega.
+- Mudanças de fase do boss agora geram transição visual e uma pequena janela de reorganização do padrão de tiros.
+- Iron Core e Apex Omega possuem módulos laterais destrutíveis; enquanto os módulos estão ativos o núcleo recebe redução de dano.
+- No Iron Core, destruir os módulos também elimina parte do fogo lateral.
+- Bosses recorrentes continuam com padrões modificados de revanche.
+
+PROGRESSÃO / REJOGABILIDADE
+- Checkpoint persistente salvo ao concluir cada fase.
+- Game Over próprio com opção de continuar do último checkpoint.
+- Menu principal mostra CONTINUAR quando há checkpoint disponível.
+- Ranking por missão S/A/B/C baseado em precisão, tempo, combo e dano recebido.
+- Bônus NO DAMAGE e bônus de rank.
+- Melhor rank de cada fase é salvo.
+- Registros de Combate mostram bosses já derrotados, ranks e conquistas persistentes.
+
+CONTROLES E CONFIGURAÇÕES
+- Teclado remapeável: movimento, tiro, dash, precisão e pausa.
+- Gamepad remapeável para tiro, dash, precisão e pausa.
+- Deadzone do analógico configurável.
+- Volumes de música e efeitos separados e salvos.
+- Mobile: joystick + FIRE + DASH + FOCO + PAUSA.
+
+CONTROLES PADRÃO
+- Movimento: WASD / Setas / IJKL / Numérico / Analógico ou D-Pad
+- Atirar: Espaço / Z / X / Ctrl / Enter
+- Precisão: SHIFT
+- Dash: C
+- Pausa: ESC / P
+- Tela cheia: F
+- Som: M
+
+ÁUDIO
+- Fases 1-4 mantêm suas músicas procedurais.
+- Fases 5-10 agora usam seis variações procedurais próprias, com andamento/timbres diferentes.
+
+TRANSIÇÃO ENTRE FASES
+- Mantém o Stage Flow da v1.4: missão concluída, warp/fade, troca segura no midpoint, limpeza das entidades antigas e entrada protegida da nave.
+- A tela de resultado agora mostra Rank, precisão, tempo, combo e bônus antes da próxima missão.
+
+TESTES DA ENTREGA
+- Sintaxe validada em game.js e v15-overhaul.js.
+- Teste de simulação: 60 Hz, 120 Hz e 144 Hz produziram 60 passos de gameplay por segundo.
+- Teste das 10 fases: todas chegam ao WARNING e criam o boss correto.
+- Teste de inimigos 6/7/8, checkpoint, ranking, transição de fase e prevenção de kill duplicada: aprovado.
