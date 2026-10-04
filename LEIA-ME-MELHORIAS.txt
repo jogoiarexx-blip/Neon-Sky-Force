@@ -1,43 +1,39 @@
-NEON SKY FORCE - PC v1.5 COMPLETE SYSTEMS
+NEON SKY FORCE - PC v1.6 STREAMING STAGES
 
-PRINCIPAIS MELHORIAS
-- Simulação em passo fixo de 60 Hz: gameplay mantém a mesma velocidade em monitores 60/120/144 Hz.
-- Campanha de 10 fases agora usa ondas roteirizadas e formações diferentes em vez de apenas contar 20 mortes.
-- Formações: linha, V, pinça, emboscada, enxame, coluna, fogo cruzado, escolta pesada e elite.
-- Entrada cinematográfica de boss com WARNING, nome do alvo e preparação antes da luta.
-- Hitbox circular menor e mais justa; no modo Precisão/SHIFT o núcleo real da nave aparece.
-- Correção de morte duplicada: um inimigo não pode mais gerar kills/pontos repetidos no mesmo frame.
+ARQUITETURA DE CARREGAMENTO
+- O jogo não mantém mais as 10 fases completas carregadas ao mesmo tempo.
+- O menu mantém apenas um manifesto leve com nome, cores e boss de cada fase.
+- Cada fase completa vive em stages/stage01.js até stages/stage10.js.
+- Ao começar uma campanha, somente a fase atual é ativada.
+- Enquanto a fase atual roda, o arquivo da próxima fase é apenas pré-cacheado pelo navegador; ele não é executado nem decodifica assets pesados.
+- Após derrotar o boss, durante MISSÃO CONCLUÍDA / warp, a próxima fase é realmente preparada.
+- Se o carregamento ainda não terminou no ponto escuro da transição, o jogo segura a troca e mostra um loading real com progresso.
+- Assim que a nova fase assume, os recursos decodificados e a configuração completa da fase anterior são liberados.
 
-INIMIGOS
-- Sniper: mostra linha de mira antes do disparo de precisão.
-- Striker: executa investidas direcionadas.
-- Guardian: possui escudo separado que precisa ser quebrado.
-- Carrier: lança drones durante a luta.
-- Support: cria aura que fortalece e regenera aliados próximos.
-- As fases avançadas combinam essas classes em ondas próprias.
+STREAMING DENTRO DA FASE
+- As ondas não são mais todas materializadas no início da missão.
+- O diretor cria a onda atual sob demanda.
+- O grupo de assets da próxima onda pode ser pré-cacheado sem ser decodificado.
+- Ao terminar uma onda, o grupo anterior é liberado e o próximo é preparado.
+- Assets exclusivos do boss são preparados apenas no fim das ondas, antes do WARNING.
 
-BOSSES
-- Mantidos os 10 encontros: Destructor, Inferno, Void Hunter, Omega, Leviathan, Iron Core, Destructor MK-II, Chronos, Void Hunter EX e Apex Omega.
-- Mudanças de fase do boss agora geram transição visual e uma pequena janela de reorganização do padrão de tiros.
-- Iron Core e Apex Omega possuem módulos laterais destrutíveis; enquanto os módulos estão ativos o núcleo recebe redução de dano.
-- No Iron Core, destruir os módulos também elimina parte do fogo lateral.
-- Bosses recorrentes continuam com padrões modificados de revanche.
+ASSET MANAGER
+- js/core/asset-manager.js controla recursos por grupo: startup, wave:N e boss.
+- Suporta imagens e áudio externos para futuras versões com spritesheets HD e músicas reais.
+- Recursos opcionais que falharem não travam o jogo; o sistema continua com o conteúdo procedural disponível.
+- Ao trocar de fase, referências de imagens/áudio da fase anterior são descartadas para permitir liberação de RAM.
 
-PROGRESSÃO / REJOGABILIDADE
-- Checkpoint persistente salvo ao concluir cada fase.
-- Game Over próprio com opção de continuar do último checkpoint.
-- Menu principal mostra CONTINUAR quando há checkpoint disponível.
-- Ranking por missão S/A/B/C baseado em precisão, tempo, combo e dano recebido.
-- Bônus NO DAMAGE e bônus de rank.
-- Melhor rank de cada fase é salvo.
-- Registros de Combate mostram bosses já derrotados, ranks e conquistas persistentes.
+STAGE LOADER
+- js/core/stage-manifest.js: índice residente e leve.
+- js/core/stage-loader.js: ativa, pré-cacheia e descarrega fases.
+- stages/stageXX.js: configuração completa, pool de inimigos, padrões de ondas e grupos de assets daquela fase.
 
-CONTROLES E CONFIGURAÇÕES
-- Teclado remapeável: movimento, tiro, dash, precisão e pausa.
-- Gamepad remapeável para tiro, dash, precisão e pausa.
-- Deadzone do analógico configurável.
-- Volumes de música e efeitos separados e salvos.
-- Mobile: joystick + FIRE + DASH + FOCO + PAUSA.
+O QUE CONTINUA DA v1.5
+- Passo fixo de 60 Hz independente de monitor 60/120/144 Hz.
+- 10 fases, 10 bosses e bosses de revanche.
+- Ondas e formações, WARNING de boss, inimigos avançados, hitbox de precisão, dash e Overdrive.
+- Checkpoint/CONTINUAR, Game Over, ranking S/A/B/C, records e conquistas.
+- Controles remapeáveis, gamepad e controles mobile completos.
 
 CONTROLES PADRÃO
 - Movimento: WASD / Setas / IJKL / Numérico / Analógico ou D-Pad
@@ -48,16 +44,10 @@ CONTROLES PADRÃO
 - Tela cheia: F
 - Som: M
 
-ÁUDIO
-- Fases 1-4 mantêm suas músicas procedurais.
-- Fases 5-10 agora usam seis variações procedurais próprias, com andamento/timbres diferentes.
-
-TRANSIÇÃO ENTRE FASES
-- Mantém o Stage Flow da v1.4: missão concluída, warp/fade, troca segura no midpoint, limpeza das entidades antigas e entrada protegida da nave.
-- A tela de resultado agora mostra Rank, precisão, tempo, combo e bônus antes da próxima missão.
+OBSERVAÇÃO
+- A versão atual ainda usa principalmente gráficos e áudio procedurais, então o ganho de RAM agora é pequeno. A principal vantagem desta v1.6 é deixar a base pronta para adicionar backgrounds, spritesheets HD, sons e músicas maiores sem carregar o jogo inteiro de uma vez.
 
 TESTES DA ENTREGA
-- Sintaxe validada em game.js e v15-overhaul.js.
-- Teste de simulação: 60 Hz, 120 Hz e 144 Hz produziram 60 passos de gameplay por segundo.
-- Teste das 10 fases: todas chegam ao WARNING e criam o boss correto.
-- Teste de inimigos 6/7/8, checkpoint, ranking, transição de fase e prevenção de kill duplicada: aprovado.
+- Sintaxe validada em game.js, v16-streaming.js, AssetManager, StageLoader e os 10 módulos de fase.
+- Teste do StageLoader aprovado: inicialmente 0 fases completas; depois apenas fase 1; após a troca, apenas fase 2.
+- Pré-cache da próxima fase confirmado sem ativar sua configuração completa.
