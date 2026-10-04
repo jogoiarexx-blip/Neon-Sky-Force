@@ -15,8 +15,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Patch CanvasGradient color safely
-        shell: python
         run: |
+          python3 - <<'PY'
           from pathlib import Path
 
           p = Path("js/game.js")
@@ -44,12 +44,12 @@ jobs:
     grad.addColorStop(0.25, warpGlow);"""
           if old not in s:
               raise SystemExit("Trecho alvo da transição não encontrado")
-          s = s.replace(old, new, 1)
-          p.write_text(s, encoding="utf-8")
+          p.write_text(s.replace(old, new, 1), encoding="utf-8")
+          PY
 
       - name: Create real favicon.ico
-        shell: python
         run: |
+          python3 - <<'PY'
           import struct
           from pathlib import Path
 
@@ -63,7 +63,7 @@ jobs:
                       r, g, b, a = 255, 255, 255, 255
                   elif diamond < 14:
                       t = (x + y) / 62
-                      r = int(0 + 255 * t)
+                      r = int(255 * t)
                       g = int(255 - 204 * t)
                       b = int(255 - 17 * t)
                       a = 255
@@ -73,18 +73,15 @@ jobs:
 
           mask_stride = ((w + 31) // 32) * 4
           mask = bytes(mask_stride * h)
-          dib = struct.pack(
-              "<IIIHHIIIIII",
-              40, w, h * 2, 1, 32, 0,
-              len(pixels) + len(mask), 0, 0, 0, 0
-          )
+          dib = struct.pack("<IIIHHIIIIII", 40, w, h * 2, 1, 32, 0,
+                            len(pixels) + len(mask), 0, 0, 0, 0)
           image = dib + pixels + mask
           icon_dir = struct.pack("<HHH", 0, 1, 1)
           entry = struct.pack("<BBBBHHII", w, h, 0, 0, 1, 32, len(image), 22)
           Path("favicon.ico").write_bytes(icon_dir + entry + image)
+          PY
 
       - name: Validate JavaScript and publication files
-        shell: bash
         run: |
           set -euo pipefail
           node --check js/game.js
@@ -102,7 +99,6 @@ jobs:
           fi
 
       - name: Commit hotfix
-        shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
