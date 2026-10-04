@@ -1,0 +1,112 @@
+name: Hotfix Neon Sky Force v1.6 Color
+
+on:
+  push:
+    paths:
+      - ".github/workflows/hotfix-v16-color.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  hotfix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch CanvasGradient color safely
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path("js/game.js")
+          s = p.read_text(encoding="utf-8")
+          old = "    grad.addColorStop(0.25, lvl.color1 + '33');"
+          new = """    const stageColor = typeof lvl.color1 === 'string' ? lvl.color1.trim() : '#00ffff';
+    let warpGlow = 'rgba(0,255,255,0.20)';
+    const shortHex = stageColor.match(/^#([0-9a-f]{3})$/i);
+    const longHex = stageColor.match(/^#([0-9a-f]{6})$/i);
+    if (shortHex) {
+      const h = shortHex[1];
+      const r = parseInt(h[0] + h[0], 16);
+      const g = parseInt(h[1] + h[1], 16);
+      const b = parseInt(h[2] + h[2], 16);
+      warpGlow = `rgba(${r},${g},${b},0.20)`;
+    } else if (longHex) {
+      const h = longHex[1];
+      const r = parseInt(h.slice(0, 2), 16);
+      const g = parseInt(h.slice(2, 4), 16);
+      const b = parseInt(h.slice(4, 6), 16);
+      warpGlow = `rgba(${r},${g},${b},0.20)`;
+    } else {
+      warpGlow = stageColor;
+    }
+    grad.addColorStop(0.25, warpGlow);"""
+          if old not in s:
+              raise SystemExit("Trecho alvo da transição não encontrado")
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding="utf-8")
+
+      - name: Create real favicon.ico
+        shell: python
+        run: |
+          import struct
+          from pathlib import Path
+
+          w = h = 32
+          pixels = bytearray()
+          for y in range(h - 1, -1, -1):
+              for x in range(w):
+                  cx, cy = x - 15.5, y - 15.5
+                  diamond = abs(cx) + abs(cy)
+                  if diamond < 8:
+                      r, g, b, a = 255, 255, 255, 255
+                  elif diamond < 14:
+                      t = (x + y) / 62
+                      r = int(0 + 255 * t)
+                      g = int(255 - 204 * t)
+                      b = int(255 - 17 * t)
+                      a = 255
+                  else:
+                      r, g, b, a = 5, 5, 16, 255
+                  pixels += bytes((b, g, r, a))
+
+          mask_stride = ((w + 31) // 32) * 4
+          mask = bytes(mask_stride * h)
+          dib = struct.pack(
+              "<IIIHHIIIIII",
+              40, w, h * 2, 1, 32, 0,
+              len(pixels) + len(mask), 0, 0, 0, 0
+          )
+          image = dib + pixels + mask
+          icon_dir = struct.pack("<HHH", 0, 1, 1)
+          entry = struct.pack("<BBBBHHII", w, h, 0, 0, 1, 32, len(image), 22)
+          Path("favicon.ico").write_bytes(icon_dir + entry + image)
+
+      - name: Validate JavaScript and publication files
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check js/game.js
+          node --check js/v16-streaming.js
+          node --check js/core/stage-manifest.js
+          node --check js/core/asset-manager.js
+          node --check js/core/stage-loader.js
+          for f in stages/stage*.js; do node --check "$f"; done
+          test -s favicon.ico
+          grep -q 'href="favicon.svg"' index.html
+          grep -q 'href="favicon.ico"' index.html
+          if grep -Fq "lvl.color1 + '33'" js/game.js; then
+            echo "Unsafe color concatenation still present"
+            exit 1
+          fi
+
+      - name: Commit hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add js/game.js favicon.ico
+          git commit -m "Hotfix v1.6: corrige transição e favicon"
+          git push
