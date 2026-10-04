@@ -3575,7 +3575,7 @@ const Game = {
 
     const grad = ctx.createRadialGradient(210, 320, 8, 210, 320, 300);
     grad.addColorStop(0, 'rgba(255,255,255,0.17)');
-    grad.addColorStop(0.25, lvl.color1 + '33');
+    grad.addColorStop(0.25, /^#[0-9a-f]{3}$/i.test(lvl.color1) ? '#' + lvl.color1.slice(1).split('').map(c => c + c).join('') + '33' : (/^#[0-9a-f]{6}$/i.test(lvl.color1) ? lvl.color1 + '33' : lvl.color1));
     grad.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 420, 640);
