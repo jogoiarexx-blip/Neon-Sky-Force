@@ -9,7 +9,7 @@
     // startGame initializes level1 through two compatibility layers.
     // Reusing the current soundtrack avoids two sets of timers and an audible reset.
     if (this.enabled && this.currentMusic?.isPlaying && this.currentMusic._nsfTrack === type) return;
-    originalPlayMusic(type);
+    originalPlayMusic.call(this, type);
     if (this.currentMusic) this.currentMusic._nsfTrack = type;
   };
 
