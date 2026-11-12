@@ -1,7 +1,7 @@
 name: Neon Sky Force - Playtest
 on:
   push:
-    branches: [upgrade/bosses-v20-qa, main]
+    branches: [upgrade/sustained-boss-v21, main]
     paths:
       - 'js/**'
       - 'stages/**'
@@ -35,6 +35,8 @@ jobs:
         run: node tests/combat-and-transition.mjs
       - name: Verify eight boss archetypes and final-phase attack patterns
         run: node tests/boss-playtest.mjs
+      - name: Sustained boss battle and bounded bullet / particle pools
+        run: node tests/sustained-battle.mjs
       - name: Upload QA report and screenshots
         if: always()
         uses: actions/upload-artifact@v4
