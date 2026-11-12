@@ -13,7 +13,7 @@ let report = {date:new Date().toISOString(),resolutions:[],gameplay:{},audio:{},
 try {
   const response=await page.goto('http://127.0.0.1:8765/',{waitUntil:'load',timeout:30000});
   assert.equal(response.status(),200);
-  await page.waitForFunction(()=>window.Game && window.StageLoader && window.AudioSystem,{timeout:15000});
+  await page.waitForFunction(()=>typeof Game !== 'undefined' && typeof StageLoader !== 'undefined' && typeof AudioSystem !== 'undefined',{timeout:15000});
   for(const size of [{width:1366,height:768},{width:390,height:844},{width:1024,height:600}]){
     await page.setViewportSize(size);
     await page.waitForTimeout(220);
