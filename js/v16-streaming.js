@@ -97,10 +97,16 @@
       const idx=(step * (this.level % 3 + 1) + (step>>2)) % scale.length;
       const octave = step % 8 >= 6 ? 2 : 1;
       const osc=this.context.createOscillator(), gain=this.context.createGain();
-      osc.type=p.accent; osc.frequency.value=p.base*4*scale[idx]*octave;
-      gain.gain.value=this.level>=9?0.035:0.028;
-      osc.connect(gain); gain.connect(this.destination); osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.001,this.context.currentTime+beat*0.8); osc.stop(this.context.currentTime+beat*0.8);
+      const now=this.context.currentTime, duration=beat*0.82;
+      osc.type=p.accent;
+      osc.frequency.value=p.base*4*scale[idx]*octave;
+      // Smooth original synth notes: avoid an abrupt volume jump/click at note start.
+      gain.gain.setValueAtTime(0.001,now);
+      gain.gain.linearRampToValueAtTime(this.level>=9?0.028:0.025,now+Math.min(.028,beat*.12));
+      gain.gain.exponentialRampToValueAtTime(0.001,now+duration);
+      osc.connect(gain); gain.connect(this.destination);
+      osc.onended=()=>{try{osc.disconnect();gain.disconnect();}catch(_){}};
+      osc.start(now); osc.stop(now+duration);
       if (step % (this.level>=9?2:4)===0) {
         const kick=this.context.createOscillator(), kg=this.context.createGain();
         kick.type='sine'; kick.frequency.value=90; kg.gain.value=0.10; kick.connect(kg); kg.connect(this.destination); kick.start();
