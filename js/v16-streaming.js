@@ -72,9 +72,9 @@
 
   /* ---------- Six additional procedural stage identities ---------- */
   class StageThemeMusic extends ProceduralMusic {
-    constructor(context, destination, level) { super(context, destination); this.level = level; this.timers = []; }
-    later(fn, ms) { const id=setTimeout(fn, ms); this.timers.push(id); }
-    stop() { this.timers.forEach(clearTimeout); this.timers=[]; super.stop(); }
+    constructor(context, destination, level) { super(context, destination); this.level = level; }
+    // Timer lifecycle inherited from ProceduralMusic: fired callbacks are removed,
+    // and track changes cancel any queued musical notes.
     start() {
       this.isPlaying = true;
       const presets = {
@@ -948,10 +948,21 @@
   };
 
   Game.update = function(timestamp) {
-    const now=Number.isFinite(timestamp)?timestamp:performance.now();if(!this._lastRaf)this._lastRaf=now;let delta=Math.min(100,Math.max(0,now-this._lastRaf));this._lastRaf=now;this._accumulator=(this._accumulator||0)+delta;let steps=0;
-    // Guarantee the first visual frame immediately.
-    if(this.frameCount===0&&this._accumulator<CONFIG.FIXED_STEP_MS)this._accumulator=CONFIG.FIXED_STEP_MS;
-    while(this._accumulator>=CONFIG.FIXED_STEP_MS&&steps<6){this.fixedStep();this._accumulator-=CONFIG.FIXED_STEP_MS;steps++;}
-    if(steps===6)this._accumulator=0;requestAnimationFrame(t=>this.update(t));
+    const now=Number.isFinite(timestamp)?timestamp:performance.now();
+    if(!this._lastRaf) this._lastRaf=now;
+    // At 30 FPS the simulation still runs at 60 Hz (two steps).
+    // Avoid up to SIX full canvas render passes on a single 60 Hz refresh,
+    // which previously amplified temporary lag into longer freezes.
+    const delta=Math.min(50,Math.max(0,now-this._lastRaf));
+    this._lastRaf=now;
+    this._accumulator=Math.min((this._accumulator||0)+delta,CONFIG.FIXED_STEP_MS*2);
+    if(this.frameCount===0&&this._accumulator<CONFIG.FIXED_STEP_MS) this._accumulator=CONFIG.FIXED_STEP_MS;
+    let steps=0;
+    while(this._accumulator>=CONFIG.FIXED_STEP_MS-0.0001&&steps<2){
+      this.fixedStep();
+      this._accumulator=Math.max(0,this._accumulator-CONFIG.FIXED_STEP_MS);
+      steps++;
+    }
+    requestAnimationFrame(t=>this.update(t));
   };
 })();
