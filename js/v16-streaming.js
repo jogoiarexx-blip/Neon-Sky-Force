@@ -78,12 +78,19 @@
     start() {
       this.isPlaying = true;
       const presets = {
-        5:{bpm:126,base:73.42,wave:'sine',scale:[1,1.2,1.5,1.8],accent:'triangle'},
-        6:{bpm:150,base:55,wave:'sawtooth',scale:[1,1.25,1.5,2],accent:'square'},
-        7:{bpm:138,base:65.41,wave:'triangle',scale:[1,1.189,1.498,1.782],accent:'sawtooth'},
-        8:{bpm:118,base:82.41,wave:'sine',scale:[1,1.334,1.587,2],accent:'triangle'},
-        9:{bpm:166,base:58.27,wave:'square',scale:[1,1.122,1.498,1.888],accent:'sawtooth'},
-        10:{bpm:172,base:55,wave:'sawtooth',scale:[1,1.26,1.5,2],accent:'square'}
+        // Original 16-step motifs add identity without loading audio assets.
+        5:{bpm:126,base:73.42,wave:'sine',scale:[1,1.2,1.5,1.8],accent:'triangle',
+          motif:[0,2,3,1,2,3,2,1,0,1,2,0,2,1,0,3]},
+        6:{bpm:150,base:55,wave:'sawtooth',scale:[1,1.25,1.5,2],accent:'square',
+          motif:[0,0,2,0,3,2,0,1,0,2,3,1,2,0,1,3]},
+        7:{bpm:138,base:65.41,wave:'triangle',scale:[1,1.189,1.498,1.782],accent:'sawtooth',
+          motif:[0,3,1,2,1,0,3,1,2,0,3,2,1,3,0,2]},
+        8:{bpm:118,base:82.41,wave:'sine',scale:[1,1.334,1.587,2],accent:'triangle',
+          motif:[0,1,2,3,1,2,0,3,2,1,3,0,1,2,0,3]},
+        9:{bpm:166,base:58.27,wave:'square',scale:[1,1.122,1.498,1.888],accent:'sawtooth',
+          motif:[3,0,2,1,3,1,0,2,1,3,2,0,3,1,2,0]},
+        10:{bpm:172,base:55,wave:'sawtooth',scale:[1,1.26,1.5,2],accent:'square',
+          motif:[0,2,3,1,3,2,0,1,2,3,1,0,3,1,2,0]}
       };
       this.preset = presets[this.level] || presets[5];
       const drone = this.createOscillator(this.preset.base, this.preset.wave, 0.035);
@@ -94,8 +101,8 @@
     sequence(step) {
       if (!this.isPlaying) return;
       const p=this.preset, beat=60/p.bpm, scale=p.scale;
-      const idx=(step * (this.level % 3 + 1) + (step>>2)) % scale.length;
-      const octave = step % 8 >= 6 ? 2 : 1;
+      const idx=p.motif[step % p.motif.length];
+      const octave = (step % 8 >= 6 && this.level >= 9) ? 2 : 1;
       const osc=this.context.createOscillator(), gain=this.context.createGain();
       const now=this.context.currentTime, duration=beat*0.82;
       osc.type=p.accent;
@@ -107,10 +114,30 @@
       osc.connect(gain); gain.connect(this.destination);
       osc.onended=()=>{try{osc.disconnect();gain.disconnect();}catch(_){}};
       osc.start(now); osc.stop(now+duration);
-      if (step % (this.level>=9?2:4)===0) {
+      // A quiet bass counterpoint changes each phrase, while maintaining
+      // fewer than two short-lived synth voices per beat.
+      if (step % 4 === 0) {
+        const bass=this.context.createOscillator(), bg=this.context.createGain();
+        const note=p.base*scale[p.motif[(step+4)%16]]*1.5;
+        const end=now+Math.min(.38,beat*.85);
+        bass.type='triangle';bass.frequency.value=note;
+        bg.gain.setValueAtTime(.001,now);
+        bg.gain.linearRampToValueAtTime(this.level>=9?.028:.018,now+.016);
+        bg.gain.exponentialRampToValueAtTime(.001,end);
+        bass.connect(bg);bg.connect(this.destination);
+        bass.onended=()=>{try{bass.disconnect();bg.disconnect();}catch(_){}};
+        bass.start(now);bass.stop(end);
+      }
+      if (step % (this.level>=9?2:this.level===8?8:4)===0) {
         const kick=this.context.createOscillator(), kg=this.context.createGain();
-        kick.type='sine'; kick.frequency.value=90; kg.gain.value=0.10; kick.connect(kg); kg.connect(this.destination); kick.start();
-        kick.frequency.exponentialRampToValueAtTime(38,this.context.currentTime+0.12); kg.gain.exponentialRampToValueAtTime(0.001,this.context.currentTime+0.18); kick.stop(this.context.currentTime+0.18);
+        kick.type='sine'; kick.frequency.value=this.level>=9?105:85;
+        kg.gain.setValueAtTime(.001,now);
+        kg.gain.linearRampToValueAtTime(this.level===8?.045:.09,now+.007);
+        kg.gain.exponentialRampToValueAtTime(.001,now+.18);
+        kick.connect(kg); kg.connect(this.destination);
+        kick.onended=()=>{try{kick.disconnect();kg.disconnect();}catch(_){}};
+        kick.start(now);
+        kick.frequency.exponentialRampToValueAtTime(38,now+.12);kick.stop(now+.18);
       }
       this.later(()=>this.sequence((step+1)%16),beat*1000);
     }
