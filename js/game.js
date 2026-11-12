@@ -2028,11 +2028,16 @@ const Game = {
     const lvl = CONFIG.LEVELS[this.level] || CONFIG.LEVELS[1];
     const ctx = this.ctx;
     
-    // Sky gradient
-    const grad = ctx.createLinearGradient(0, 0, 0, 640);
-    grad.addColorStop(0, lvl.bg);
-    grad.addColorStop(1, "#000");
-    ctx.fillStyle = grad;
+    // Cache the stage gradient instead of reallocating it every frame.
+    const skyKey = this.level + ':' + lvl.bg;
+    if (this._skyGradientKey !== skyKey) {
+      const grad = ctx.createLinearGradient(0, 0, 0, 640);
+      grad.addColorStop(0, lvl.bg);
+      grad.addColorStop(1, "#000");
+      this._skyGradient = grad;
+      this._skyGradientKey = skyKey;
+    }
+    ctx.fillStyle = this._skyGradient;
     ctx.fillRect(0, 0, 420, 640);
     
     // Stars
@@ -2149,16 +2154,27 @@ const Game = {
 
   drawPostFX() {
     const ctx = this.ctx;
-    // Subtle scanlines + vignette: improves depth without external assets.
+    // Reuse a 4px pattern instead of issuing 160 scanline draw calls per frame.
+    if (!this._scanlinePattern) {
+      const tile = document.createElement('canvas');
+      tile.width = 4; tile.height = 4;
+      const tileCtx = tile.getContext('2d');
+      tileCtx.fillStyle = 'rgba(0,0,0,0.055)';
+      tileCtx.fillRect(0, 0, 4, 1);
+      this._scanlinePattern = ctx.createPattern(tile, 'repeat');
+    }
+    if (!this._vignetteGradient) {
+      const vignette = ctx.createRadialGradient(210, 320, 180, 210, 320, 390);
+      vignette.addColorStop(0, 'rgba(0,0,0,0)');
+      vignette.addColorStop(1, 'rgba(0,0,0,0.48)');
+      this._vignetteGradient = vignette;
+    }
     ctx.save();
-    ctx.globalAlpha = 0.055;
-    ctx.fillStyle = '#000';
-    for (let y = 0; y < 640; y += 4) ctx.fillRect(0, y, 420, 1);
-    ctx.globalAlpha = 1;
-    const vignette = ctx.createRadialGradient(210, 320, 180, 210, 320, 390);
-    vignette.addColorStop(0, 'rgba(0,0,0,0)');
-    vignette.addColorStop(1, 'rgba(0,0,0,0.48)');
-    ctx.fillStyle = vignette;
+    if (this._scanlinePattern) {
+      ctx.fillStyle = this._scanlinePattern;
+      ctx.fillRect(0, 0, 420, 640);
+    }
+    ctx.fillStyle = this._vignetteGradient;
     ctx.fillRect(0, 0, 420, 640);
     ctx.restore();
   },

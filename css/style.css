@@ -559,3 +559,183 @@ body {
 .achievement-card { padding:8px; border:1px solid rgba(255,255,255,.14); border-radius:8px; font-size:11px; text-align:left; color:#777; }
 .achievement-card.unlocked { color:#fff; border-color:rgba(255,227,77,.55); background:rgba(255,227,77,.07); }
 @media (max-width:540px){.boss-gallery,.achievement-gallery{grid-template-columns:1fr}.menu-actions{bottom:4px}.menu-actions .menu-btn{font-size:10px;padding:7px 10px}}
+
+
+/* ============================================================
+   NSF 1.7 — HANGAR UI / ACCESSIBLE MENUS / RESPONSIVE LAYOUT
+   Styles intentionally separated from the 1.6 legacy layer.
+   ============================================================ */
+:root {
+  --ui-bg:#070d21; --ui-panel:#0b152c; --ui-line:#314763;
+  --ui-text:#eff7ff; --ui-muted:#9baecb; --ui-cyan:#72efff; --ui-pink:#ff7ed4;
+}
+.start-overlay {
+  position:fixed; inset:0; z-index:245; display:none;
+  padding:clamp(14px,3.3vw,42px); overflow-x:hidden; overflow-y:auto;
+  background:radial-gradient(ellipse at 23% 28%, rgba(20,79,123,.45),transparent 46%),
+    radial-gradient(ellipse at 83% 78%,rgba(103,37,118,.2),transparent 43%),
+    linear-gradient(140deg,#050913,#0a1430 53%,#050814);
+  color:var(--ui-text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  align-items:center; justify-content:center; flex-direction:column; gap:22px;
+  touch-action:pan-y; user-select:none;
+}
+.start-overlay.is-visible { display:flex; }
+.start-overlay::before {
+  content:""; position:fixed; inset:0; pointer-events:none; opacity:.16;
+  background-image:linear-gradient(rgba(75,178,232,.16) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(75,178,232,.16) 1px,transparent 1px);
+  background-size:52px 52px; mask-image:linear-gradient(to bottom,transparent 8%,#000 100%);
+}
+.start-layout { width:min(1080px,100%); display:grid; grid-template-columns:minmax(0,1.05fr) minmax(365px,.95fr); align-items:center; gap:clamp(26px,4.3vw,70px); position:relative; margin:auto; }
+.start-brand { min-width:0; }
+.start-eyebrow,.field-label,.launch-index,.hangar-label,.hangar-spec,.start-version,.start-meta,.menu-record,.launch-tip {
+  font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;
+}
+.start-eyebrow { display:flex; align-items:center; gap:9px; color:var(--ui-cyan); font-size:11px; letter-spacing:.19em; margin-bottom:20px; font-weight:700; }
+.online-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#76ffc9; box-shadow:0 0 10px rgba(118,255,201,.55); }
+.start-title { font-size:clamp(46px,5.35vw,78px); line-height:.91; letter-spacing:-.075em; font-weight:900; color:#f5fbff; max-width:550px; text-shadow:0 8px 25px rgba(0,0,0,.28); }
+.start-title span { display:block; color:var(--ui-cyan); }
+.start-subtitle { max-width:405px; margin-top:24px; font-size:clamp(14px,1.35vw,16px); line-height:1.65; color:var(--ui-muted); }
+.ship-hangar {
+  height:310px; position:relative; display:flex; align-items:center; justify-content:center;
+  margin-top:18px; isolation:isolate;
+}
+.ship-hangar::before {
+  content:""; position:absolute; width:290px; height:235px; border-radius:50%;
+  background:radial-gradient(ellipse,rgba(37,210,255,.17),transparent 68%);
+}
+.hangar-label,.hangar-spec { color:#7fabc4; font-size:10px; letter-spacing:.13em; position:absolute; left:0; }
+.hangar-label { top:28px; }.hangar-spec { bottom:4px; }
+.hero-ship { width:min(100%,335px); height:100%; filter:drop-shadow(0 12px 21px rgba(30,192,255,.21)); animation:shipFloat 5.5s ease-in-out infinite; }
+@keyframes shipFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
+.start-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
+.start-meta span { color:#a0bdd3; border:1px solid #28455d; background:rgba(8,26,44,.75); padding:9px 11px; font-size:10px; letter-spacing:.04em; }
+.launch-panel {
+  border:1px solid rgba(106,205,239,.26); border-radius:20px; padding:clamp(20px,3vw,32px);
+  background:linear-gradient(145deg,rgba(15,29,56,.97),rgba(8,16,37,.98));
+  box-shadow:0 23px 90px rgba(0,0,0,.3), inset 0 1px rgba(184,225,255,.08);
+  min-width:0;
+}
+.launch-index { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; color:#8ba4c3; font-size:10px; letter-spacing:.08em; }
+.launch-status { color:#8af5be; }
+.launch-panel h2 { color:#f6fbff; font-size:clamp(25px,2.6vw,33px); font-weight:800; letter-spacing:-.035em; margin:22px 0 8px; }
+.launch-intro { color:var(--ui-muted); font-size:13px; line-height:1.6; margin-bottom:25px; }
+.field-label { color:#b3c6da; letter-spacing:.13em; font-size:11px; font-weight:700; margin:0 0 12px; }
+.difficulty-pills { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.difficulty-choice { min-width:0; min-height:68px; text-align:left; display:flex; flex-direction:column; justify-content:center; gap:4px;
+  border:1px solid #33445e; background:rgba(16,30,52,.74); border-radius:11px; padding:13px 15px;
+  color:#eaf4ff; cursor:pointer; font:inherit; transition:background .16s,border-color .16s,transform .16s;
+}
+.difficulty-choice strong {font-size:13px;letter-spacing:.07em;}
+.difficulty-choice small {font-size:11px;color:#94a9c4;}
+.difficulty-choice:hover { background:#18304c; border-color:#6adbe9; transform:translateY(-1px); }
+.difficulty-choice.selected { background:linear-gradient(145deg,rgba(21,80,104,.65),rgba(13,44,69,.84)); border-color:#63eaff; box-shadow:inset 0 0 0 1px rgba(99,234,255,.22); }
+.difficulty-choice.selected strong { color:#9af5ff; }
+.difficulty-choice.selected small { color:#cee9fa; }
+.difficulty-choice[data-difficulty="NIGHTMARE"].selected { border-color:#ef8dff; background:rgba(92,35,105,.43); }
+.difficulty-choice[data-difficulty="HARD"].selected { border-color:#ffac8c; background:rgba(110,48,44,.36); }
+.difficulty-summary { min-height:33px; font-size:12px; line-height:1.5; color:#b8d2e6; margin:13px 0 15px; }
+.launch-button { width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; border:0; border-radius:11px;
+  background:linear-gradient(100deg,#78f2ff,#3bc4ed); color:#041323; padding:16px 20px; min-height:55px;
+  font:800 14px system-ui,sans-serif; letter-spacing:.06em; cursor:pointer; box-shadow:0 6px 24px rgba(41,195,236,.15); transition:filter .16s,transform .16s;
+}
+.launch-button span { font-size:24px; line-height:1; }
+.launch-button:hover { filter:brightness(1.08); transform:translateY(-1px); }
+.launch-button:active,.difficulty-choice:active { transform:translateY(1px); }
+.menu-record { display:flex; justify-content:space-between; gap:12px; font-size:11px; color:#9ab1cc; border-bottom:1px solid #233650; padding:18px 0 14px; }
+.menu-record strong { color:#ffe6a0; font-size:15px; font-variant-numeric:tabular-nums; }
+.start-overlay .menu-actions { position:static; inset:auto; transform:none; width:100%; display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 0; z-index:auto; }
+.start-overlay .menu-actions .menu-btn { flex:1 1 90px; min-width:0; min-height:41px; padding:9px 8px; margin:0; border-radius:9px;
+  font:700 10px ui-monospace,Consolas,monospace; letter-spacing:.02em; color:#d5e9f7;
+  background:#10213c; border:1px solid #36546e; box-shadow:none; }
+.start-overlay .menu-actions .menu-btn:hover {background:#193853; border-color:#72efff; transform:none; box-shadow:none;}
+.launch-tip { font-size:10px; line-height:1.6; color:#8198b6; margin-top:18px; text-align:center; }
+.start-version { position:relative; color:#6d829f; font-size:10px; letter-spacing:.12em; text-align:center; }
+.start-overlay button:focus-visible, .settings-menu button:focus-visible, .settings-menu input:focus-visible,
+.settings-menu select:focus-visible, .pause-menu button:focus-visible { outline:2px solid #f1fbff; outline-offset:3px; }
+.fps-counter { display:none; position:fixed; top:12px; left:max(12px,env(safe-area-inset-left)); z-index:190;
+  background:rgba(2,12,24,.79); border:1px solid #3b9fb0; color:#b2fff1; padding:5px 8px; border-radius:6px;
+  font:700 11px ui-monospace,Consolas,monospace; pointer-events:none; font-variant-numeric:tabular-nums; }
+.fps-counter.visible { display:block; }
+/* Secondary interfaces share a restrained tactical HUD style. */
+.pause-overlay,.victory-overlay,.gameover-overlay,.settings-overlay {
+  padding:16px; background:rgba(3,8,22,.88); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+}
+.pause-menu,.victory-content,.gameover-content,.settings-menu {
+  border:1px solid #3d6480; background:linear-gradient(150deg,#101f39,#081328 74%,#100e2c);
+  border-radius:18px; box-shadow:0 24px 76px rgba(0,0,0,.54); color:#edf7ff;
+  padding:clamp(22px,3.2vw,34px); font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  width:min(94vw,590px); max-height:min(92dvh,850px); overflow:auto; overscroll-behavior:contain;
+}
+.pause-menu h2,.settings-menu h2 {font-size:clamp(26px,4.3vw,36px); color:#f0fbff; text-shadow:none; letter-spacing:-.025em; margin-bottom:20px;}
+.pause-menu h2::after,.settings-menu h2::after {content:"";display:block; height:3px; width:56px; margin:11px auto 0; border-radius:10px; background:#70e8f5;}
+.pause-menu .menu-btn,.victory-content .menu-btn,.gameover-content .menu-btn,.settings-menu .menu-btn { 
+  width:min(100%,360px); display:block; margin:10px auto; min-height:46px; padding:12px 20px;
+  background:#132d4a; color:#eefbff; border:1px solid #426e89; border-radius:10px;
+  font:700 13px system-ui,sans-serif; letter-spacing:.045em; box-shadow:none; transition:background .15s, border-color .15s;
+}
+.pause-menu .menu-btn:first-of-type,.victory-content .menu-btn:first-of-type,.gameover-content .menu-btn:first-of-type {background:#1b607a; border-color:#77ecff;}
+.pause-menu .menu-btn:hover,.victory-content .menu-btn:hover,.gameover-content .menu-btn:hover,.settings-menu .menu-btn:hover {
+  background:#1e4765; border-color:#8defff; transform:none; box-shadow:none;
+}
+.settings-menu h3 {color:#becff0;text-align:left;font-size:12px;letter-spacing:.08em;margin:19px 0 10px;}
+.settings-section-label {text-align:left;color:#7edee9;font:bold 11px ui-monospace,Consolas,monospace;letter-spacing:.09em;margin:19px 0 10px;border-bottom:1px solid #25415c;padding-bottom:9px;}
+.settings-row {display:grid;grid-template-columns:minmax(110px,1fr) minmax(100px,1.5fr) 48px;align-items:center;gap:10px;font-size:13px;color:#c7d5e9;margin:12px 0;}
+.settings-row label {text-align:left;}
+.settings-row input[type="range"] {accent-color:#74eaff;cursor:pointer;}
+.settings-row select {width:100%;background:#10233c;color:#effaff;border:1px solid #406584;border-radius:8px;padding:10px 8px;font:12px system-ui,sans-serif;}
+.settings-hint {font-size:10px;color:#8fa8c5;}
+.settings-toggle-row {display:flex;justify-content:space-between;align-items:center;gap:15px;border:1px solid #283e58;background:rgba(13,34,59,.5);padding:10px 12px;border-radius:8px;margin:8px 0;font-size:13px;text-align:left;}
+.settings-toggle-row input {accent-color:#5eeaff;width:19px;height:19px;flex:none;}
+.bind-btn {background:#132942;border:1px solid #315775;border-radius:8px;color:#d9ecf9;min-height:39px;line-height:1.35;}
+.bind-btn:hover {background:#1c3a59;border-color:#80ebfa;}
+.settings-menu,.records-menu {scrollbar-color:#49738e transparent;}
+.boss-card {border-color:#31506c;background:#0d2239;}
+.achievement-card {border-color:#31415b;font-size:12px;}
+.victory-content h1,.gameover-content h1 {text-shadow:none;letter-spacing:-.04em;}
+.victory-content .stats {font-size:16px;line-height:1.8;}
+.victory-content .message {font-size:14px;line-height:1.55;}
+@media (max-width:900px) {
+  .start-layout {grid-template-columns:1fr;max-width:610px;gap:24px;}
+  .start-brand {text-align:center;}
+  .start-eyebrow,.start-meta {justify-content:center;}
+  .start-title {margin:auto; font-size:clamp(48px,10vw,67px);}
+  .start-subtitle {margin:17px auto 0;}
+  .ship-hangar {height:185px;margin-top:0;}
+  .hero-ship {width:220px;}
+  .hangar-label {left:6%;top:19px;}.hangar-spec{left:6%;bottom:6px;}
+  .start-version {padding-bottom:4px;}
+}
+@media (max-width:600px) {
+  .start-overlay {justify-content:flex-start;gap:14px;padding:18px 14px 12px;}
+  .start-layout {margin:0 auto;gap:15px;}
+  .start-title {font-size:clamp(40px,12vw,56px);}
+  .start-eyebrow {font-size:9px;margin-bottom:12px;}
+  .start-subtitle {font-size:12px;line-height:1.45;margin-top:12px;}
+  .ship-hangar {display:none;}
+  .start-meta {margin-top:12px;gap:5px;}
+  .start-meta span {font-size:8px;padding:5px 7px;}
+  .launch-panel {padding:18px;border-radius:13px;}
+  .launch-panel h2 {margin-top:14px;font-size:24px;}
+  .launch-intro {margin-bottom:14px;}
+  .difficulty-choice {min-height:56px;padding:9px 11px;}
+  .difficulty-summary {min-height:0;margin:10px 0 14px;font-size:11px;}
+  .launch-button {min-height:49px;font-size:12px;padding:12px 15px;}
+  .launch-tip {margin-top:12px;font-size:9px;}
+  .settings-row {grid-template-columns:minmax(95px,1fr) minmax(95px,1.1fr) 35px;font-size:11px;gap:7px;}
+  .settings-menu,.records-menu {padding:20px 14px;}
+  .start-version {font-size:8px;line-height:1.5;}
+}
+@media (max-height:720px) and (min-width:901px) {
+  .ship-hangar {height:230px;margin-top:0;}
+  .hero-ship {width:275px;}
+  .start-title {font-size:clamp(45px,5vw,64px);}
+  .start-layout {gap:32px;}
+  .launch-panel {padding:21px;}
+  .launch-panel h2 {margin:13px 0 5px;}
+  .launch-intro {margin-bottom:12px;}
+  .difficulty-choice {min-height:57px;padding:9px 13px;}
+}
+@media (prefers-reduced-motion:reduce) {
+  .hero-ship {animation:none;}
+}

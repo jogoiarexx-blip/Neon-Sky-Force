@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#000000">
-<title>Neon Sky Force - Streaming Stages v1.6</title>
+<meta name="theme-color" content="#070d21">
+<title>Neon Sky Force — Operação Núcleo Neon</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="favicon.ico" type="image/x-icon">
 <link rel="stylesheet" href="css/style.css">
@@ -15,7 +15,57 @@
   <canvas id="game" width="420" height="640" tabindex="0" aria-label="Área do jogo"></canvas>
 </main>
 
-<div id="startOverlay" aria-hidden="true"></div>
+<div id="startOverlay" class="start-overlay is-visible" aria-hidden="false">
+  <div class="start-layout">
+    <header class="start-brand">
+      <p class="start-eyebrow"><span class="online-dot"></span> COMANDO AÉREO / SETOR 09</p>
+      <h1 class="start-title">NEON <span>SKY FORCE</span></h1>
+      <p class="start-subtitle">Uma última linha de defesa. Dez setores hostis. Sua missão começa agora.</p>
+      <div class="ship-hangar" aria-hidden="true">
+        <span class="hangar-label">AERONAVE / NS-F01</span>
+        <svg class="hero-ship" viewBox="0 0 340 320" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="hull" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#66edff"/><stop offset=".43" stop-color="#186184"/><stop offset="1" stop-color="#08142f"/></linearGradient>
+            <linearGradient id="glass" x1=".1" y1="0" x2="1" y2="1"><stop stop-color="#d7ffff"/><stop offset=".5" stop-color="#31d7f8"/><stop offset="1" stop-color="#0f447d"/></linearGradient>
+          </defs>
+          <ellipse cx="170" cy="175" rx="151" ry="111" fill="none" stroke="#39cfff" stroke-opacity=".18" stroke-width="1.5" stroke-dasharray="5 13"/>
+          <ellipse cx="170" cy="176" rx="122" ry="85" fill="none" stroke="#39cfff" stroke-opacity=".11"/>
+          <path d="M143 235 L149 293 L160 267 L170 293 L180 267 L192 293 L197 235Z" fill="#00d7ff" fill-opacity=".2"/>
+          <path d="M170 24 L198 122 L246 142 L315 226 L257 220 L230 202 L215 249 L191 218 L170 258 L149 218 L125 249 L110 202 L83 220 L25 226 L94 142 L142 122Z" fill="url(#hull)" stroke="#64ecff" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M170 24 L170 258 M142 122 L109 200 M198 122 L231 200 M94 142 L125 159 M246 142 L215 159" stroke="#baf9ff" stroke-opacity=".45" fill="none" stroke-width="2"/>
+          <path d="M170 70 L192 146 L183 188 L157 188 L148 146Z" fill="url(#glass)" stroke="#d8ffff" stroke-width="2"/>
+          <path d="M153 199 L170 215 L187 199" fill="none" stroke="#ff6fc8" stroke-width="4"/>
+          <path d="M112 204 L123 224 L139 210 M228 204 L217 224 L201 210" fill="none" stroke="#0bf3ff" stroke-width="5"/>
+          <circle cx="170" cy="232" r="6" fill="#fff" stroke="#00ecff" stroke-width="4"/>
+        </svg>
+        <span class="hangar-spec">INTERCEPTOR CLASSE A · NÚCLEO IÔNICO</span>
+      </div>
+      <div class="start-meta"><span>10 MISSÕES</span><span>10 CHEFES</span><span>ARCADE / SHOOT 'EM UP</span></div>
+    </header>
+    <section class="launch-panel" aria-labelledby="launchTitle">
+      <div class="launch-index"><span>BRIEFING 01 / 01</span><span class="launch-status">SISTEMAS PRONTOS</span></div>
+      <h2 id="launchTitle">Preparar missão</h2>
+      <p class="launch-intro">Escolha a intensidade do combate e entre na operação.</p>
+      <p class="field-label">NÍVEL DE AMEAÇA</p>
+      <div class="difficulty-pills" role="group" aria-label="Selecionar dificuldade">
+        <button class="difficulty-choice" type="button" data-difficulty="EASY" aria-pressed="false"><strong>FÁCIL</strong><small>Recruta</small></button>
+        <button class="difficulty-choice selected" type="button" data-difficulty="NORMAL" aria-pressed="true"><strong>NORMAL</strong><small>Padrão</small></button>
+        <button class="difficulty-choice" type="button" data-difficulty="HARD" aria-pressed="false"><strong>DIFÍCIL</strong><small>Veterano</small></button>
+        <button class="difficulty-choice" type="button" data-difficulty="NIGHTMARE" aria-pressed="false"><strong>PESADELO</strong><small>Extremo</small></button>
+      </div>
+      <p id="difficultyText" class="difficulty-summary" aria-live="polite">Experiência equilibrada — desafio padrão.</p>
+      <button id="launchGameBtn" class="launch-button" type="button">INICIAR OPERAÇÃO <span aria-hidden="true">↗</span></button>
+      <p class="menu-record">RECORDE PESSOAL <strong id="menuRecord">000000</strong></p>
+      <div id="menuActions" class="menu-actions" aria-label="Ações do menu">
+        <button id="menuContinueBtn" class="menu-btn" type="button">CONTINUAR</button>
+        <button id="recordsBtn" class="menu-btn" type="button">REGISTROS</button>
+        <button id="menuSettingsBtn" class="menu-btn" type="button">CONFIGURAÇÕES</button>
+      </div>
+      <p class="launch-tip">WASD / SETAS para mover · ESPAÇO para atirar · ESC para pausar</p>
+    </section>
+  </div>
+  <p class="start-version">NEON SKY FORCE · OPERAÇÃO NÚCLEO NEON · EDIÇÃO VISUAL 1.7</p>
+</div>
 
 <div id="controls" aria-label="Controles de toque">
   <div id="joystick" class="joystick" role="button" aria-label="Direcional">
@@ -27,13 +77,8 @@
   <button id="mobilePauseBtn" class="action-btn pause-touch-btn" type="button" aria-label="Pausar">II</button>
 </div>
 
-<div id="menuActions" class="menu-actions" aria-label="Ações do menu">
-  <button id="menuContinueBtn" class="menu-btn" type="button">CONTINUAR</button>
-  <button id="recordsBtn" class="menu-btn" type="button">REGISTROS</button>
-  <button id="menuSettingsBtn" class="menu-btn" type="button">CONFIGURAÇÕES</button>
-</div>
-
 <div id="feedback"></div>
+<div id="fpsCounter" class="fps-counter" aria-hidden="true">FPS --</div>
 
 <div id="pauseOverlay" class="pause-overlay" aria-hidden="true">
   <div class="pause-menu" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
@@ -75,6 +120,11 @@
 <div id="settingsOverlay" class="settings-overlay" aria-hidden="true">
   <div class="settings-menu" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
     <h2 id="settingsTitle">CONFIGURAÇÕES</h2>
+    <div class="settings-section-label">VÍDEO E DESEMPENHO</div>
+    <div class="settings-row"><label for="graphicsQuality">Qualidade gráfica</label><select id="graphicsQuality"><option value="low">Desempenho</option><option value="balanced" selected>Equilibrado</option><option value="high">Alta qualidade</option></select><span class="settings-hint">GPU</span></div>
+    <div class="settings-toggle-row"><label for="reducedEffects">Reduzir efeitos visuais</label><input id="reducedEffects" type="checkbox"></div>
+    <div class="settings-toggle-row"><label for="showFps">Mostrar FPS</label><input id="showFps" type="checkbox"></div>
+    <div class="settings-section-label">ÁUDIO E CONTROLES</div>
     <div class="settings-row"><label for="musicVolume">Música</label><input id="musicVolume" type="range" min="0" max="100" value="30"><span id="musicVolumeValue">30%</span></div>
     <div class="settings-row"><label for="sfxVolume">Efeitos</label><input id="sfxVolume" type="range" min="0" max="100" value="15"><span id="sfxVolumeValue">15%</span></div>
     <div class="settings-row"><label for="gamepadDeadzone">Deadzone controle</label><input id="gamepadDeadzone" type="range" min="5" max="50" value="20"><span id="gamepadDeadzoneValue">20%</span></div>
@@ -103,5 +153,6 @@
 <script src="js/core/asset-manager.js"></script>
 <script src="js/core/stage-loader.js"></script>
 <script src="js/v16-streaming.js"></script>
+<script src="js/visual-polish.js"></script>
 </body>
 </html>
