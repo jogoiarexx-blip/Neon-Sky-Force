@@ -25,9 +25,9 @@ try {
   await page.waitForFunction(()=>{
     const badge=document.getElementById('fpsCounter');
     return badge?.textContent.includes('P95') && badge.textContent.includes('TIROS');
-  },{timeout:5000});
+  },null,{timeout:5000});
   report.fpsDiagnostic=await page.locator('#fpsCounter').textContent();
-  assert.match(report.fpsDiagnostic,/FPS \\d+ · P95 \\d+ms · TIROS \\d+ · FX \\d+/);
+  assert.match(report.fpsDiagnostic,/FPS \d+ · P95 \d+ms · TIROS \d+ · FX \d+/);
   report.movement=await page.evaluate(()=>{
     Game.enemyBullets=[];
     Game.enemies=[];
