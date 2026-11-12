@@ -183,16 +183,32 @@
     ctx.restore();
   };
 
-  // Restrict particle bursts as they are created, not only at the beginning
-  // of the next frame. The original damage/combo effects remain unchanged.
+  // All quality modes use a bounded visual-effect budget. Important
+  // impact bursts recycle old particles rather than disappearing at capacity;
+  // low-priority trails are skipped when the pool is full.
+  const particleBudgets = Object.freeze({low:130,balanced:230,high:420});
+  let discardedTrails = 0, recycledParticles = 0, peakParticles = 0;
   Game.createExplosion = function(x, y, color, amount=30, type='normal') {
-    if (!isFastPath()) return originalCreateExplosion.call(this,x,y,color,amount,type);
-    const low = quality() === 'low';
-    const limit = low ? 130 : 230;
-    const fraction = low ? .52 : .75;
-    const available = Math.max(0, limit - (this.particles?.length || 0));
-    const visualCount = Math.max(0,Math.min(available,Math.round(amount*fraction)));
-    if (visualCount) originalCreateExplosion.call(this,x,y,color,visualCount,type);
+    const level = quality();
+    const pool = this.particles || (this.particles=[]);
+    const limit = particleBudgets[level] || particleBudgets.balanced;
+    const ratio = level==='low'?.52:level==='balanced'?.75:1;
+    const count = Math.min(limit,Math.max(0,Math.round(amount*ratio)));
+    if (!count) return;
+    if (type==='trail') {
+      const permitted = Math.max(0,Math.min(count,limit-pool.length));
+      discardedTrails += count-permitted;
+      if (permitted) originalCreateExplosion.call(this,x,y,color,permitted,type);
+    } else {
+      const overflow = Math.max(0,pool.length+count-limit);
+      if (overflow) {
+        // Particles carry visuals only, never damage or hitbox information.
+        pool.splice(0,overflow);
+        recycledParticles += overflow;
+      }
+      originalCreateExplosion.call(this,x,y,color,count,type);
+    }
+    peakParticles = Math.max(peakParticles,pool.length);
   };
 
   // Provides immutable counters for regression tests without touching input
@@ -200,6 +216,10 @@
   window.NSFCombatRenderer = Object.freeze({
     get cachedSprites() { return textures.size; },
     get fastMode() { return isFastPath(); },
-    get spriteTypes() { return Array.from(cachedTypes); }
+    get spriteTypes() { return Array.from(cachedTypes); },
+    get particleLimit() { return particleBudgets[quality()] || 230; },
+    get recycledParticles() { return recycledParticles; },
+    get discardedTrails() { return discardedTrails; },
+    get peakParticles() { return peakParticles; }
   });
 })();
