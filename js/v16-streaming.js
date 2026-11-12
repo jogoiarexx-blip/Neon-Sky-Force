@@ -72,9 +72,9 @@
 
   /* ---------- Six additional procedural stage identities ---------- */
   class StageThemeMusic extends ProceduralMusic {
-    constructor(context, destination, level) { super(context, destination); this.level = level; this.timers = []; }
-    later(fn, ms) { const id=setTimeout(fn, ms); this.timers.push(id); }
-    stop() { this.timers.forEach(clearTimeout); this.timers=[]; super.stop(); }
+    constructor(context, destination, level) { super(context, destination); this.level = level; }
+    // Timer lifecycle inherited from ProceduralMusic: fired callbacks are removed,
+    // and track changes cancel any queued musical notes.
     start() {
       this.isPlaying = true;
       const presets = {
@@ -97,10 +97,16 @@
       const idx=(step * (this.level % 3 + 1) + (step>>2)) % scale.length;
       const octave = step % 8 >= 6 ? 2 : 1;
       const osc=this.context.createOscillator(), gain=this.context.createGain();
-      osc.type=p.accent; osc.frequency.value=p.base*4*scale[idx]*octave;
-      gain.gain.value=this.level>=9?0.035:0.028;
-      osc.connect(gain); gain.connect(this.destination); osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.001,this.context.currentTime+beat*0.8); osc.stop(this.context.currentTime+beat*0.8);
+      const now=this.context.currentTime, duration=beat*0.82;
+      osc.type=p.accent;
+      osc.frequency.value=p.base*4*scale[idx]*octave;
+      // Smooth original synth notes: avoid an abrupt volume jump/click at note start.
+      gain.gain.setValueAtTime(0.001,now);
+      gain.gain.linearRampToValueAtTime(this.level>=9?0.028:0.025,now+Math.min(.028,beat*.12));
+      gain.gain.exponentialRampToValueAtTime(0.001,now+duration);
+      osc.connect(gain); gain.connect(this.destination);
+      osc.onended=()=>{try{osc.disconnect();gain.disconnect();}catch(_){}};
+      osc.start(now); osc.stop(now+duration);
       if (step % (this.level>=9?2:4)===0) {
         const kick=this.context.createOscillator(), kg=this.context.createGain();
         kick.type='sine'; kick.frequency.value=90; kg.gain.value=0.10; kick.connect(kg); kg.connect(this.destination); kick.start();
@@ -948,10 +954,21 @@
   };
 
   Game.update = function(timestamp) {
-    const now=Number.isFinite(timestamp)?timestamp:performance.now();if(!this._lastRaf)this._lastRaf=now;let delta=Math.min(100,Math.max(0,now-this._lastRaf));this._lastRaf=now;this._accumulator=(this._accumulator||0)+delta;let steps=0;
-    // Guarantee the first visual frame immediately.
-    if(this.frameCount===0&&this._accumulator<CONFIG.FIXED_STEP_MS)this._accumulator=CONFIG.FIXED_STEP_MS;
-    while(this._accumulator>=CONFIG.FIXED_STEP_MS&&steps<6){this.fixedStep();this._accumulator-=CONFIG.FIXED_STEP_MS;steps++;}
-    if(steps===6)this._accumulator=0;requestAnimationFrame(t=>this.update(t));
+    const now=Number.isFinite(timestamp)?timestamp:performance.now();
+    if(!this._lastRaf) this._lastRaf=now;
+    // At 30 FPS the simulation still runs at 60 Hz (two steps).
+    // Avoid up to SIX full canvas render passes on a single 60 Hz refresh,
+    // which previously amplified temporary lag into longer freezes.
+    const delta=Math.min(50,Math.max(0,now-this._lastRaf));
+    this._lastRaf=now;
+    this._accumulator=Math.min((this._accumulator||0)+delta,CONFIG.FIXED_STEP_MS*2);
+    if(this.frameCount===0&&this._accumulator<CONFIG.FIXED_STEP_MS) this._accumulator=CONFIG.FIXED_STEP_MS;
+    let steps=0;
+    while(this._accumulator>=CONFIG.FIXED_STEP_MS-0.0001&&steps<2){
+      this.fixedStep();
+      this._accumulator=Math.max(0,this._accumulator-CONFIG.FIXED_STEP_MS);
+      steps++;
+    }
+    requestAnimationFrame(t=>this.update(t));
   };
 })();

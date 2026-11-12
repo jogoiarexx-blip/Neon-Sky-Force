@@ -107,6 +107,24 @@ const AudioSystem = {
       this.sfxGain = this.context.createGain();
       this.sfxGain.gain.value = this.sfxVolume;
       this.sfxGain.connect(this.masterGain);
+
+      // Soften harsh high frequencies and tame layered synth peaks.
+      const filter = this.context.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 6800;
+      filter.Q.value = 0.3;
+      const limiter = this.context.createDynamicsCompressor();
+      limiter.threshold.value = -21;
+      limiter.knee.value = 14;
+      limiter.ratio.value = 3.5;
+      limiter.attack.value = 0.008;
+      limiter.release.value = 0.18;
+      this.musicGain.disconnect();
+      this.musicGain.connect(filter);
+      filter.connect(limiter);
+      limiter.connect(this.masterGain);
+      this.musicFilter = filter;
+      this.musicLimiter = limiter;
       
     } catch(e) {
       console.warn("Web Audio não suportado");
@@ -136,6 +154,9 @@ const AudioSystem = {
       osc.frequency.value = frequency;
       gain.gain.value = volume;
       
+      osc.onended = () => {
+        try { osc.disconnect(); gain.disconnect(); } catch (_) {}
+      };
       osc.start();
       gain.gain.exponentialRampToValueAtTime(0.01, this.context.currentTime + duration);
       osc.stop(this.context.currentTime + duration);
@@ -222,8 +243,19 @@ class ProceduralMusic {
     this.oscillators = [];
     this.gains = [];
     this.isPlaying = false;
+    this._timers = new Set();
   }
   
+  later(callback, milliseconds) {
+    // Track each scheduled callback, clearing it from memory as it fires.
+    const id = setTimeout(() => {
+      this._timers.delete(id);
+      if (this.isPlaying) callback();
+    }, Math.max(0, milliseconds));
+    this._timers.add(id);
+    return id;
+  }
+
   createOscillator(freq, type, volume, detune = 0) {
     const osc = this.context.createOscillator();
     const gain = this.context.createGain();
@@ -244,9 +276,13 @@ class ProceduralMusic {
   
   stop() {
     this.isPlaying = false;
+    this._timers.forEach(id => clearTimeout(id));
+    this._timers.clear();
     this.oscillators.forEach(osc => {
       try { osc.stop(); } catch(e) {}
+      try { osc.disconnect(); } catch(e) {}
     });
+    this.gains.forEach(gain => { try { gain.disconnect(); } catch(e) {} });
     this.oscillators = [];
     this.gains = [];
   }
@@ -277,7 +313,7 @@ class MenuMusic extends ProceduralMusic {
     let time = this.context.currentTime;
     
     notes.forEach((freq, i) => {
-      setTimeout(() => {
+      this.later(() => {
         if (!this.isPlaying) return;
         
         const note = this.context.createOscillator();
@@ -296,7 +332,7 @@ class MenuMusic extends ProceduralMusic {
       }, i * beatLength * 1000);
     });
     
-    setTimeout(() => this.playArpeggio(notes, beatLength), notes.length * beatLength * 1000);
+    this.later(() => this.playArpeggio(notes, beatLength), notes.length * beatLength * 1000);
   }
 }
 
@@ -311,7 +347,7 @@ class Level1Music extends ProceduralMusic {
     this.playBassline([110, 110, 146.83, 110], beatLength);
     
     // Lead melody
-    setTimeout(() => {
+    this.later(() => {
       this.playMelody([
         440, 493.88, 523.25, 587.33,
         523.25, 493.88, 440, 392
@@ -326,7 +362,7 @@ class Level1Music extends ProceduralMusic {
     if (!this.isPlaying) return;
     
     notes.forEach((freq, i) => {
-      setTimeout(() => {
+      this.later(() => {
         if (!this.isPlaying) return;
         
         const bass = this.context.createOscillator();
@@ -345,14 +381,14 @@ class Level1Music extends ProceduralMusic {
       }, i * beatLength * 1000);
     });
     
-    setTimeout(() => this.playBassline(notes, beatLength), notes.length * beatLength * 1000);
+    this.later(() => this.playBassline(notes, beatLength), notes.length * beatLength * 1000);
   }
   
   playMelody(notes, beatLength) {
     if (!this.isPlaying) return;
     
     notes.forEach((freq, i) => {
-      setTimeout(() => {
+      this.later(() => {
         if (!this.isPlaying) return;
         
         const lead = this.context.createOscillator();
@@ -371,7 +407,7 @@ class Level1Music extends ProceduralMusic {
       }, i * beatLength * 1000);
     });
     
-    setTimeout(() => this.playMelody(notes, beatLength), notes.length * beatLength * 1000);
+    this.later(() => this.playMelody(notes, beatLength), notes.length * beatLength * 1000);
   }
   
   playKick(beatLength) {
@@ -392,7 +428,7 @@ class Level1Music extends ProceduralMusic {
     kickGain.gain.exponentialRampToValueAtTime(0.001, this.context.currentTime + 0.3);
     kick.stop(this.context.currentTime + 0.3);
     
-    setTimeout(() => this.playKick(beatLength), beatLength * 1000);
+    this.later(() => this.playKick(beatLength), beatLength * 1000);
   }
 }
 
@@ -422,7 +458,7 @@ class Level2Music extends ProceduralMusic {
     const pattern = [0, 2, 4, 5, 4, 2, 3, 1, 0];
     
     pattern.forEach((noteIndex, i) => {
-      setTimeout(() => {
+      this.later(() => {
         if (!this.isPlaying) return;
         
         const note = this.context.createOscillator();
@@ -441,7 +477,7 @@ class Level2Music extends ProceduralMusic {
       }, i * beatLength * 1000);
     });
     
-    setTimeout(() => this.playExoticMelody(notes, beatLength), pattern.length * beatLength * 1000);
+    this.later(() => this.playExoticMelody(notes, beatLength), pattern.length * beatLength * 1000);
   }
   
   playPercussion(beatLength) {
@@ -462,7 +498,7 @@ class Level2Music extends ProceduralMusic {
     percGain.gain.exponentialRampToValueAtTime(0.001, this.context.currentTime + 0.1);
     perc.stop(this.context.currentTime + 0.1);
     
-    setTimeout(() => this.playPercussion(beatLength), beatLength * 1000);
+    this.later(() => this.playPercussion(beatLength), beatLength * 1000);
   }
 }
 
@@ -508,7 +544,7 @@ class Level3Music extends ProceduralMusic {
     bleepGain.gain.exponentialRampToValueAtTime(0.001, this.context.currentTime + 0.8);
     bleep.stop(this.context.currentTime + 0.8);
     
-    setTimeout(() => this.playCosmicBleeps(), Math.random() * 2000 + 1000);
+    this.later(() => this.playCosmicBleeps(), Math.random() * 2000 + 1000);
   }
 }
 
@@ -536,7 +572,7 @@ class Level4Music extends ProceduralMusic {
     if (!this.isPlaying) return;
     
     notes.forEach((freq, i) => {
-      setTimeout(() => {
+      this.later(() => {
         if (!this.isPlaying) return;
         
         const bass = this.context.createOscillator();
@@ -555,14 +591,14 @@ class Level4Music extends ProceduralMusic {
       }, i * beatLength * 1000);
     });
     
-    setTimeout(() => this.playIntenseBass(notes, beatLength), notes.length * beatLength * 1000);
+    this.later(() => this.playIntenseBass(notes, beatLength), notes.length * beatLength * 1000);
   }
   
   playFastArp(notes, beatLength) {
     if (!this.isPlaying) return;
     
     notes.forEach((freq, i) => {
-      setTimeout(() => {
+      this.later(() => {
         if (!this.isPlaying) return;
         
         const arp = this.context.createOscillator();
@@ -581,7 +617,7 @@ class Level4Music extends ProceduralMusic {
       }, i * beatLength * 1000);
     });
     
-    setTimeout(() => this.playFastArp(notes, beatLength), notes.length * beatLength * 1000);
+    this.later(() => this.playFastArp(notes, beatLength), notes.length * beatLength * 1000);
   }
   
   playDrivingKick(beatLength) {
@@ -602,7 +638,7 @@ class Level4Music extends ProceduralMusic {
     kickGain.gain.exponentialRampToValueAtTime(0.001, this.context.currentTime + 0.2);
     kick.stop(this.context.currentTime + 0.2);
     
-    setTimeout(() => this.playDrivingKick(beatLength), beatLength * 1000);
+    this.later(() => this.playDrivingKick(beatLength), beatLength * 1000);
   }
 }
 
@@ -630,7 +666,7 @@ class BossMusic extends ProceduralMusic {
     if (!this.isPlaying) return;
     
     notes.forEach((freq, i) => {
-      setTimeout(() => {
+      this.later(() => {
         if (!this.isPlaying) return;
         
         const bass = this.context.createOscillator();
@@ -650,7 +686,7 @@ class BossMusic extends ProceduralMusic {
       }, i * beatLength * 1000);
     });
     
-    setTimeout(() => this.playEpicBass(notes, beatLength), notes.length * beatLength * 1000);
+    this.later(() => this.playEpicBass(notes, beatLength), notes.length * beatLength * 1000);
   }
   
   playPowerChords(beatLength) {
@@ -662,7 +698,7 @@ class BossMusic extends ProceduralMusic {
     ];
     
     chords.forEach((chord, i) => {
-      setTimeout(() => {
+      this.later(() => {
         if (!this.isPlaying) return;
         
         chord.forEach(freq => {
@@ -683,7 +719,7 @@ class BossMusic extends ProceduralMusic {
       }, i * beatLength * 1000);
     });
     
-    setTimeout(() => this.playPowerChords(beatLength), chords.length * beatLength * 1000);
+    this.later(() => this.playPowerChords(beatLength), chords.length * beatLength * 1000);
   }
   
   playWarDrums(beatLength) {
@@ -704,7 +740,7 @@ class BossMusic extends ProceduralMusic {
     drumGain.gain.exponentialRampToValueAtTime(0.001, this.context.currentTime + 0.3);
     drum.stop(this.context.currentTime + 0.3);
     
-    setTimeout(() => this.playWarDrums(beatLength), beatLength * 1000);
+    this.later(() => this.playWarDrums(beatLength), beatLength * 1000);
   }
 }
 
@@ -724,7 +760,7 @@ class VictoryMusic extends ProceduralMusic {
     ];
     
     fanfare.forEach(note => {
-      setTimeout(() => {
+      this.later(() => {
         if (!this.isPlaying) return;
         
         const osc = this.context.createOscillator();
@@ -744,7 +780,7 @@ class VictoryMusic extends ProceduralMusic {
     });
     
     // Play once, then ambient
-    setTimeout(() => {
+    this.later(() => {
       if (!this.isPlaying) return;
       const pad = this.createOscillator(261.63, 'sine', 0.04);
       pad.osc.start();
