@@ -75,14 +75,14 @@ try {
     const balanced=b.profiles.find(p=>p.quality==='balanced');
     const low=b.profiles.find(p=>p.quality==='low');
     assert.equal(high.redraws,0,'high mode should preserve original artwork');
-    if (b.type <= 4) assert(balanced.redraws>0 && balanced.redraws<=13,
+    if (b.type <= 3) assert(balanced.redraws>0 && balanced.redraws<=13,
       'balanced sprite refresh exceeded cadence');
     else assert.equal(balanced.redraws,0,
-      'lightweight boss should retain original drawing in balanced preset');
-    if (b.type === 7) assert.equal(low.redraws,0,
-      'Chronos should retain original lightweight vector drawing');
-    else assert(low.redraws>0 && low.redraws<=11,
+      'balanced should draw cheap geometries directly');
+    if (b.type <= 4) assert(low.redraws>0 && low.redraws<=11,
       'low sprite refresh exceeded cadence');
+    else assert.equal(low.redraws,0,
+      'low should retain the direct renderer for cheap bosses');
   }
   for(const f of report.finisher){
     assert.equal(f.bonus,f.type>=5?1:0,'finisher fired at wrong boss type');
