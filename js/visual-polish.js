@@ -96,6 +96,28 @@
     ctx.restore();
   };
 
+  // High quality retains the original full-gradient projectiles. Balanced
+  // and performance modes avoid two new gradients and a glow per bullet/frame.
+  const baseDrawBullets = Game.drawBullets;
+  Game.drawBullets = function() {
+    if (visual.quality === "high" && !visual.reducedEffects) {
+      return baseDrawBullets.call(this);
+    }
+    const ctx = this.ctx;
+    ctx.save();
+    for (const bullet of this.bullets) {
+      if (bullet.dead) continue;
+      const x = bullet.x, y = bullet.y;
+      ctx.fillStyle = bullet.overdrive ? "rgba(255,215,50,.28)" : "rgba(24,221,255,.28)";
+      ctx.fillRect(x - 3, y + 3, 6, 18);
+      ctx.fillStyle = bullet.overdrive ? "#ffdb4b" : "#2ae7ff";
+      ctx.fillRect(x - 2, y + 1, 4, 11);
+      ctx.fillStyle = "#f5ffff";
+      ctx.fillRect(x - 1, y + 3, 2, 7);
+    }
+    ctx.restore();
+  };
+
   const basePostFx = Game.drawPostFX;
   Game.drawPostFX = function() {
     if (visual.quality === "low" || visual.reducedEffects) return;
