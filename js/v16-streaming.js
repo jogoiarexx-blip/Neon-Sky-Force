@@ -654,8 +654,19 @@
 
   Game.updateBoss = function() {
     const before=this.boss;if(!before)return;const prevPhase=before.phase,newBulletStart=this.enemyBullets.length;legacy.updateBoss.call(this);const b=this.boss;if(!b)return;
+    // Only filter newly created turret shots after a cannon is destroyed.
+    // The former implementation copied the entire bullet list every frame,
+    // even with both turrets intact. Filter before phase-transition clearing,
+    // so 'newBulletStart' still points to the correct shots.
+    if(b.type===6&&b.parts?.some(p=>p.destroyed) && this.enemyBullets.length>newBulletStart){
+      const left=b.parts.find(p=>p.id==='left'),right=b.parts.find(p=>p.id==='right');
+      const shots=this.enemyBullets.splice(newBulletStart);
+      for(const shot of shots){
+        if((left?.destroyed&&shot.x<b.x-8)||(right?.destroyed&&shot.x>b.x+8))continue;
+        this.enemyBullets.push(shot);
+      }
+    }
     if(b.phase!==prevPhase){b.lastPhase=b.phase;this.enemyBullets=this.enemyBullets.filter((_,i)=>i%3!==0);this.createExplosion(b.x,b.y,CONFIG.LEVELS[this.level].color1,34,'spark');this.addScreenShake(9);this.showFeedback('BOSS · FASE '+(b.phase+1),b.phase===2?'#ff3355':'#ffe34d');}
-    if(b.type===6&&b.parts?.length){const newly=this.enemyBullets.slice(newBulletStart);const old=this.enemyBullets.slice(0,newBulletStart);const left=b.parts.find(p=>p.id==='left'),right=b.parts.find(p=>p.id==='right');this.enemyBullets=old.concat(newly.filter(bl=>!((left?.destroyed&&bl.x<b.x-8)||(right?.destroyed&&bl.x>b.x+8))));}
   };
 
   Game.checkCollisions = function() {
@@ -969,7 +980,7 @@
       ctx.save();ctx.translate(this.screenShake.x,this.screenShake.y);this.drawBackground();this.updatePlayer();
       this.bullets.forEach(b=>{if(!b.dead)b.y-=12;});this.bullets=this.bullets.filter(b=>!b.dead&&b.y>-20);
       this.updateEnemies();this.updateMissionDirector();if(this.bossIntro)this.updateBossIntro();if(this.boss)this.updateBoss();
-      this.enemyBullets.forEach(b=>{if(!b.dead){b.x+=b.vx||0;b.y+=b.vy||5;}});this.enemyBullets=this.enemyBullets.filter(b=>!b.dead&&b.y<700&&b.y>-30&&b.x>-30&&b.x<450);
+      this.enemyBullets.forEach(b=>{if(!b.dead){b.x+=b.vx||0;b.y+=b.vy??5;}});this.enemyBullets=this.enemyBullets.filter(b=>!b.dead&&b.y<700&&b.y>-30&&b.x>-30&&b.x<450);
       this.powerups.forEach(u=>u.y+=2);this.powerups=this.powerups.filter(u=>!u.collected&&u.y<700);this.updateCombo();this.checkCollisions();
       this.particles.forEach(p=>p.update());this.particles=this.particles.filter(p=>p.life>0);this.floatingTexts.forEach(t=>t.update());this.floatingTexts=this.floatingTexts.filter(t=>t.life>0);
       this.drawPlayer();this.drawBullets();this.drawEnemies();this.drawBoss();this.drawPowerups();this.drawEnemyBullets();this.particles.forEach(p=>p.draw(ctx));this.floatingTexts.forEach(t=>t.draw(ctx));this.drawBossIntro();this.drawPostFX();this.drawHUD();this.checkAchievements();
