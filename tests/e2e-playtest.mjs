@@ -27,6 +27,7 @@ try {
     assert(bounds.panelX>=-5 && bounds.panelRight<=bounds.screen+5,JSON.stringify(bounds));
   }
   await page.setViewportSize({width:1366,height:768});
+  await page.screenshot({path:'qa-menu.png',timeout:10000});
   await page.locator('[data-difficulty="NORMAL"]').click();
   await page.locator('#launchGameBtn').click();
   await page.waitForFunction(()=>Game.state==='playing',{timeout:30000});
@@ -54,6 +55,7 @@ try {
   });
   await page.keyboard.up('Space'); await page.keyboard.up('ArrowLeft');
   report.gameplay=perf;
+  await page.screenshot({path:'qa-gameplay.png',timeout:10000});
   assert(perf.frames>120,'simulation did not advance in 7.5s');
   assert.equal(perf.state,'playing');
   // Pause/resume and audio instance ownership.
@@ -65,8 +67,11 @@ try {
   assert.equal(await page.evaluate(()=>Game.paused),false);
   // Visit ten real stage modules using StageLoader; render each one for ~0.7s.
   for(let level=1;level<=10;level++){
+    const beforeFrame = await page.evaluate(()=>Game.frameCount);
     const result=await page.evaluate(async lvl=>{
+      const prev = StageLoader.activeLevel;
       await StageLoader.activate(lvl);
+      if (prev && prev !== lvl) StageLoader.release(prev);
       Game.level=lvl;Game.boss=null;Game.bossIntro=null;Game.stageTransition=null;
       Game.enemies=[];Game.enemyBullets=[];Game.bullets=[];Game.powerups=[];Game.particles=[];Game.floatingTexts=[];
       Game.initStageMission();
@@ -75,8 +80,8 @@ try {
       return {level:Game.level,levelName:CONFIG.LEVELS[lvl]?.name,stageActive:StageLoader.activeLevel,music:AudioSystem.currentMusic?.constructor?.name};
     },level);
     await page.waitForTimeout(700);
-    const final=await page.evaluate(()=>({frame:Game.frameCount,enemyCount:Game.enemies.length,state:Game.state}));
-    report.stages.push({...result,...final});
+    const final=await page.evaluate(()=>({frame:Game.frameCount,enemyCount:Game.enemies.length,state:Game.state,loadedStageCount:StageLoader.loadedStages.size,heapMB:performance.memory?.usedJSHeapSize/1048576||null}));
+    report.stages.push({...result,...final,stepFrames:final.frame-beforeFrame});
     assert.equal(final.state,'playing');
   }
   // Unload the current music and verify no lingering procedural timers after stop.
@@ -86,12 +91,11 @@ try {
     return {oldClass:old?.constructor?.name,stopFlag:old?.isPlaying,pendingTimerCount:old?.timers?.length??old?._timers?.size??null};
   });
   assert.equal(report.audio.final.stopFlag,false);
-  await page.screenshot({path:'qa-screenshot.png',fullPage:true});
   assert.equal(errors.length,0,'page errors: '+errors.join('; '));
   console.log('QA_PLAYTEST_REPORT='+JSON.stringify(report));
 } catch(error) {
   console.error('QA_PLAYTEST_FAILED='+String(error));
   console.error('QA_PARTIAL_REPORT='+JSON.stringify(report));
-  await page.screenshot({path:'qa-failure.png',fullPage:true}).catch(()=>{});
+  await page.screenshot({path:'qa-failure.png',timeout:6000}).catch(()=>{});
   process.exitCode=1;
 } finally { await fs.writeFile('qa-report.json',JSON.stringify(report,null,2)); await browser.close(); }
