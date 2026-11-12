@@ -88,9 +88,13 @@
     // repeatedly copying an offscreen 1.4x atlas was slower than their
     // original vector art in the browser benchmark.
     const profile=getProfile();
-    const cheaperDirect = (profile==='balanced' && b.type>=5) ||
-      (profile==='low' && b.type===7);
-    if (!isLite() || cheaperDirect) {
+    // Benchmark-informed selection:
+    // low benefits on the expensive gradient-heavy first four bosses;
+    // balanced only amortizes the cache on the first three.
+    // The simpler late-game geometries are cheaper to draw directly.
+    const cacheThisBoss = isLite() &&
+      (profile==='low' ? b.type<=4 : profile==='balanced' && b.type<=3);
+    if (!cacheThisBoss) {
       drawBossOriginal.call(this);
       warning(this,b);
       return;
