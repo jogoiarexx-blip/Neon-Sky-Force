@@ -187,23 +187,40 @@
     if (fps) fps.classList.toggle("visible", visual.showFps && this.state === "playing");
   };
 
-  // Render the FPS diagnostic at most once per second, outside the game canvas.
+  // Render FPS, frame-time p95 and current combat object counts at most
+  // once per second. Keep only the current one-second sample window.
   const baseUpdate = Game.update;
   Game.update = function(timestamp) {
     if (visual.showFps && this.state === "playing") {
       const now = Number.isFinite(timestamp) ? timestamp : performance.now();
       if (!this._fpsStart) this._fpsStart = now;
+      if (this._fpsPrevTime && now > this._fpsPrevTime) {
+        (this._fpsFrameTimes ||= []).push(now - this._fpsPrevTime);
+      }
+      this._fpsPrevTime = now;
       this._fpsFrames = (this._fpsFrames || 0) + 1;
       const elapsed = now - this._fpsStart;
       if (elapsed >= 900) {
         const badge = byId("fpsCounter");
-        if (badge) badge.textContent = "FPS " + Math.round(this._fpsFrames * 1000 / elapsed);
+        if (badge) {
+          const samples = this._fpsFrameTimes || [];
+          samples.sort((a,b)=>a-b);
+          const p95 = samples.length
+            ? Math.round(samples[Math.floor(.95*(samples.length-1))]) : 0;
+          const fps = Math.round(this._fpsFrames * 1000 / elapsed);
+          badge.textContent = "FPS " + fps + " · P95 " + p95
+            + "ms · TIROS " + (this.enemyBullets?.length || 0)
+            + " · FX " + (this.particles?.length || 0);
+        }
         this._fpsFrames = 0;
+        this._fpsFrameTimes = [];
         this._fpsStart = now;
       }
     } else {
       this._fpsFrames = 0;
       this._fpsStart = 0;
+      this._fpsPrevTime = 0;
+      this._fpsFrameTimes = [];
     }
     return baseUpdate.call(this, timestamp);
   };
