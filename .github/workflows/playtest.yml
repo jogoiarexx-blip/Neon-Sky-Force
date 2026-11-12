@@ -29,6 +29,8 @@ jobs:
           echo $! > /tmp/neon-web.pid
       - name: Execute playable Chromium smoke test
         run: node tests/e2e-playtest.mjs
+      - name: Isolated heavy-stage performance checks
+        run: node tests/isolated-stage-perf.mjs
       - name: Upload QA report and screenshots
         if: always()
         uses: actions/upload-artifact@v4
