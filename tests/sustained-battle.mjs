@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 const browser=await chromium.launch({headless:true,
   args:['--use-gl=angle','--use-angle=swiftshader']});
 const page=await browser.newPage({viewport:{width:1366,height:768}});
-const errors=[],report={movement:null,particles:[],density:null,turrets:null,longRuns:[],errors};
+const errors=[],report={fpsDiagnostic:null,movement:null,particles:[],density:null,turrets:null,longRuns:[],errors};
 page.on('pageerror',error=>errors.push('pageerror: '+error.message));
 page.on('console',msg=>{if(msg.type()==='error')errors.push('console: '+msg.text());});
 try {
@@ -17,6 +17,17 @@ try {
     && typeof NSFCombatRenderer!=='undefined');
   await page.locator('#launchGameBtn').click();
   await page.waitForFunction(()=>Game.state==='playing');
+  await page.evaluate(()=>{
+    const input=document.getElementById('showFps');
+    input.checked=true;
+    input.dispatchEvent(new Event('change',{bubbles:true}));
+  });
+  await page.waitForFunction(()=>{
+    const badge=document.getElementById('fpsCounter');
+    return badge?.textContent.includes('P95') && badge.textContent.includes('TIROS');
+  },{timeout:5000});
+  report.fpsDiagnostic=await page.locator('#fpsCounter').textContent();
+  assert.match(report.fpsDiagnostic,/FPS \\d+ · P95 \\d+ms · TIROS \\d+ · FX \\d+/);
   report.movement=await page.evaluate(()=>{
     Game.enemyBullets=[];
     Game.enemies=[];
