@@ -84,7 +84,13 @@
   Game.drawBoss = function() {
     const b=this.boss;
     if (!b) return;
-    if (!isLite()) {
+    // These bosses are already cheap to draw on normal desktop graphics:
+    // repeatedly copying an offscreen 1.4x atlas was slower than their
+    // original vector art in the browser benchmark.
+    const profile=getProfile();
+    const cheaperDirect = (profile==='balanced' && b.type>=5) ||
+      (profile==='low' && b.type===7);
+    if (!isLite() || cheaperDirect) {
       drawBossOriginal.call(this);
       warning(this,b);
       return;
@@ -92,13 +98,13 @@
     let entry=caches.get(getProfile());
     if (!entry) {
       const canvas=document.createElement('canvas');
-      const scale=getProfile()==='low'?1:1.4;
+      const scale=1; // lower cache cost; the game canvas handles final DPR.
       canvas.width=Math.ceil(textureSize*scale);
       canvas.height=Math.ceil(textureSize*scale);
       entry={canvas,scale,instance:null,key:null,lastFrame:-Infinity,ready:false};
       caches.set(getProfile(),entry);
     }
-    const key=cacheKey(b), cadence=getProfile()==='low'?4:2;
+    const key=cacheKey(b), cadence=getProfile()==='low'?4:3;
     const need=!entry.ready || entry.instance!==b || entry.key!==key
       || this.frameCount-entry.lastFrame>=cadence;
     if (need) {
