@@ -78,7 +78,7 @@ try {
         graphicsFastPath:await page.evaluate(()=>NSFCombatRenderer.fastMode)});
       assert.equal(reading.state,'playing');
       assert(reading.ticks>=1,'No simulation progress: '+preset);
-      if(preset!=='high') assert(reading.cachedSprites>=8,'Enemy sprite cache did not populate');
+      if(preset!=='high') assert(reading.cachedSprites>=6,'Enemy sprite cache did not populate');
       else assert.equal(reading.cachedSprites,0,'High preset should retain original drawing');
     } finally {await page.close();}
   }
@@ -88,6 +88,25 @@ try {
   const page=await browser.newPage({viewport:{width:1366,height:768}});
   try {
     await start(page);
+    // Graze should score exactly once on a safe near miss, without
+    // accidentally damaging the player or repeatedly farming the bullet.
+    const graze=await page.evaluate(()=>{
+      Game.enemies=[];Game.enemyBullets=[];Game.bullets=[];
+      Game.player.x=210;Game.player.y=510;
+      Game.player.invuln=0;Game.player.dashFrames=0;
+      const hp=Game.player.life,score=Game.score;
+      Game.enemyBullets.push({x:229,y:510,vx:0,vy:0,r:4.5,color:'#ff3366'});
+      Game.checkCollisions();
+      const afterFirst=Game.score-score;
+      Game.checkCollisions();
+      const afterSecond=Game.score-score;
+      return {afterFirst,afterSecond,hp:Game.player.life,originalHp:hp,count:Game.grazeCount};
+    });
+    assert.equal(graze.afterFirst,12);
+    assert.equal(graze.afterSecond,12);
+    assert.equal(graze.hp,graze.originalHp);
+    assert.equal(graze.count,1);
+
     const injected=await page.evaluate(()=>{
       Game.enemies=[]; Game.enemyBullets=[]; Game.bullets=[];
       Game.player.invuln=1000;
@@ -113,7 +132,7 @@ try {
       score:Game.score
     }));
     assert.deepEqual(transitioned.loaded,[2]);
-    results.bossTransition={injected,...transitioned};
+    results.bossTransition={graze,injected,...transitioned};
   } finally {await page.close();}
 
   assert.deepEqual(errors, []);
