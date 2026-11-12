@@ -1,0 +1,41 @@
+name: Neon Sky Force - Playtest
+on:
+  push:
+    branches: [qa/audio-fps-gameplay-v18, main]
+    paths:
+      - 'js/**'
+      - 'stages/**'
+      - 'index.html'
+      - 'css/**'
+      - 'tests/**'
+      - '.github/workflows/playtest.yml'
+  workflow_dispatch:
+jobs:
+  gameplay-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright and browser
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Start local game server
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/neon-web.log 2>&1 &
+          echo $! > /tmp/neon-web.pid
+      - name: Execute playable Chromium smoke test
+        run: node tests/e2e-playtest.mjs
+      - name: Upload QA report and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: neon-playtest-report
+          path: |
+            qa-report.json
+            qa-screenshot.png
+            qa-failure.png
+          if-no-files-found: ignore
