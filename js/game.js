@@ -150,27 +150,40 @@ const AudioSystem = {
       osc.connect(gain);
       gain.connect(this.sfxGain);
       
+      // Short attack removes hard-edged clicks. The glide gives the
+      // synthesized impacts a punchier, less repetitive character.
+      const now = this.context.currentTime;
+      const seconds = Math.max(.025, Number(duration) || .1);
+      const hz = Math.max(45, Number(frequency) || 200);
+      const loudness = Math.max(.002, Math.min(.4, Number(volume) || .1));
+      const attack = Math.min(.008, seconds * .15);
       osc.type = type;
-      osc.frequency.value = frequency;
-      gain.gain.value = volume;
-      
+      osc.frequency.setValueAtTime(hz, now);
+      if (type === 'sawtooth' || type === 'square') {
+        osc.frequency.exponentialRampToValueAtTime(
+          Math.max(40, hz * (type === 'sawtooth' ? .56 : .86)), now + seconds);
+      }
+      gain.gain.setValueAtTime(.0005, now);
+      gain.gain.linearRampToValueAtTime(loudness, now + attack);
+      gain.gain.exponentialRampToValueAtTime(.0005, now + seconds);
       osc.onended = () => {
         try { osc.disconnect(); gain.disconnect(); } catch (_) {}
       };
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.01, this.context.currentTime + duration);
-      osc.stop(this.context.currentTime + duration);
+      osc.start(now);
+      osc.stop(now + seconds);
     } catch(e) {
       console.warn("Erro ao tocar som");
     }
   },
   
   shoot() {
-    this.play(800, 0.1, 'square', 0.05);
+    const weaponLevel = Math.max(1, Math.min(3, Game.player?.weapon || 1));
+    this.play(720 + weaponLevel * 70, .085, 'square', .047);
   },
-  
+
   explosion() {
-    this.play(100, 0.3, 'sawtooth', 0.15);
+    this.play(95 + Math.random() * 30, .25 + Math.random() * .06,
+      'sawtooth', .13);
   },
   
   powerup() {
